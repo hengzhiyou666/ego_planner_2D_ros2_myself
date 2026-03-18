@@ -1,0 +1,2 @@
+/usr/bin/ar qc libvendor_bspline_opt.a CMakeFiles/vendor_bspline_opt.dir/vendor/bspline_opt/src/uniform_bspline.cpp.o CMakeFiles/vendor_bspline_opt.dir/vendor/bspline_opt/src/bspline_optimizer.cpp.o CMakeFiles/vendor_bspline_opt.dir/vendor/bspline_opt/src/gradient_descent_optimizer.cpp.o
+/usr/bin/ranlib libvendor_bspline_opt.a

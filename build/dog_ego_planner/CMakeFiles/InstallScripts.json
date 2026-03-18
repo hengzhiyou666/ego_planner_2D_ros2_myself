@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdog_ego_core.a CMakeFiles/dog_ego_core.dir/src/planner_interface_dog.cpp.o
+/usr/bin/ranlib libdog_ego_core.a

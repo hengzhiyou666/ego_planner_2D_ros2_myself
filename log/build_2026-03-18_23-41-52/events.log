@@ -1,0 +1,438 @@
+[0.000000] (-) TimerEvent: {}
+[0.000151] (dog_ego_planner) JobQueued: {'identifier': 'dog_ego_planner', 'dependencies': OrderedDict()}
+[0.000264] (dog_ego_planner) JobStarted: {'identifier': 'dog_ego_planner'}
+[0.007598] (dog_ego_planner) JobProgress: {'identifier': 'dog_ego_planner', 'progress': 'cmake'}
+[0.007686] (dog_ego_planner) Command: {'cmd': ['/snap/bin/cmake', '/home/hzy/0.0002233/LocalPlanner', '-DCMAKE_BUILD_TYPE=Debug', '-DCMAKE_INSTALL_PREFIX=/home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner'], 'cwd': '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('CONDA_PROMPT_MODIFIER', ''), ('LANGUAGE', 'zh_CN:zh'), ('USER', 'hzy'), ('SSH_AGENT_PID', '4209'), ('XDG_SESSION_TYPE', 'x11'), ('GIT_ASKPASS', '/usr/share/cursor/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/usr/local/cuda-11.4/lib64:/usr/local/cuda-11.4/lib64:/heng/livox_ros_driver2_ws/install/livox_ros_driver2/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/hzy'), ('CHROME_DESKTOP', 'cursor.desktop'), ('CONDA_SHLVL', '0'), ('TERM_PROGRAM_VERSION', '2.6.20'), ('DESKTOP_SESSION', 'ubuntu'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/cursor.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('VSCODE_GIT_ASKPASS_MAIN', '/usr/share/cursor/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/usr/share/cursor/cursor'), ('MANAGERPID', '2653'), ('SYSTEMD_EXEC_PID', '3053'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('_CE_M', ''), ('_CONDA_ROOT', '/home/hzy/miniconda3'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '408287'), ('IM_CONFIG_PHASE', '1'), ('COLCON_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'hzy'), ('JOURNAL_STREAM', '8:77465'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'hzy'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('_CE_CONDA', ''), ('FC_FONTATIONS', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('CODELLDB_LAUNCH_CONNECT_FILE', '/home/hzy/.config/Cursor/User/workspaceStorage/61b84a778242bc40a58a6c8ff77d5244/vadimcn.vscode-lldb/rpcaddress.txt'), ('PATH', '/snap/bin:/usr/local/cuda-11.4/bin:/home/hzy/.cursor/extensions/vadimcn.vscode-lldb-1.12.1/bin:/home/hzy/.local/bin:/snap/bin:/home/hzy/miniconda3/condabin:/usr/local/cuda-11.4/bin:/opt/ros/humble/bin:/home/hzy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/hzy-System-Product-Name:@/tmp/.ICE-unix/3024,unix/hzy-System-Product-Name:/tmp/.ICE-unix/3024'), ('INVOCATION_ID', '6995cfed37bf40ba862e06d43d819c7c'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':1'), ('LANG', 'zh_CN.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'), ('XMODIFIERS', '@im=fcitx'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-e833bbcca8.sock'), ('TERM_PROGRAM', 'vscode'), ('CURSOR_TRACE_ID', '5ef0004c35934d42baa5da860856508e'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/tmp/ssh-XXXXXXuC5xmG/agent.4208'), ('AMENT_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2:/opt/ros/humble'), ('CONDA_PYTHON_EXE', '/home/hzy/miniconda3/bin/python'), ('SHELL', '/bin/bash'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('CONDA_DEFAULT_ENV', ''), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('_CONDA_EXE', '/home/hzy/miniconda3/bin/conda'), ('VSCODE_GIT_IPC_AUTH_TOKEN', 'b11c2e3bdd62c56b7e1771189f1db4e68128879ce436051f1639950a1d9c27f5'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('CONDA_EXE', '/home/hzy/miniconda3/bin/conda'), ('CLUTTER_IM_MODULE', 'fcitx'), ('XDG_DATA_DIRS', '/usr/share/ubuntu:/usr/share/gnome:/home/hzy/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('CONDA_PREFIX', ''), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2:/opt/ros/humble')]), 'shell': False}
+[0.100026] (-) TimerEvent: {}
+[0.122122] (dog_ego_planner) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[0.161508] (dog_ego_planner) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[0.165934] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.199627] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.200083] (-) TimerEvent: {}
+[0.208487] (dog_ego_planner) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.208643] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.208842] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.217336] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.252793] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.263132] (dog_ego_planner) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.263298] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.263618] (dog_ego_planner) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.268772] (dog_ego_planner) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.13 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.300178] (-) TimerEvent: {}
+[0.347648] (dog_ego_planner) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter\n'}
+[0.396348] (dog_ego_planner) StdoutLine: {'line': b'-- Found rclcpp: 16.0.18 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[0.400237] (-) TimerEvent: {}
+[0.421779] (dog_ego_planner) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[0.424616] (dog_ego_planner) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[0.430027] (dog_ego_planner) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[0.437709] (dog_ego_planner) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.447826] (dog_ego_planner) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.475971] (dog_ego_planner) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[0.478253] (dog_ego_planner) StdoutLine: {'line': b'-- Found rmw_cyclonedds_cpp: 1.3.4 (/opt/ros/humble/share/rmw_cyclonedds_cpp/cmake)\n'}
+[0.491363] (dog_ego_planner) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_cyclonedds_cpp' as default\n"}
+[0.496356] (dog_ego_planner) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[0.500307] (-) TimerEvent: {}
+[0.548575] (dog_ego_planner) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[0.548780] (dog_ego_planner) StdoutLine: {'line': b'-- Found Threads: TRUE\n'}
+[0.591200] (dog_ego_planner) StdoutLine: {'line': b'-- Found nav_msgs: 4.9.1 (/opt/ros/humble/share/nav_msgs/cmake)\n'}
+[0.600385] (-) TimerEvent: {}
+[0.612823] (dog_ego_planner) StdoutLine: {'line': b'-- Found sensor_msgs: 4.9.1 (/opt/ros/humble/share/sensor_msgs/cmake)\n'}
+[0.625820] (dog_ego_planner) StdoutLine: {'line': b'-- Found visualization_msgs: 4.9.1 (/opt/ros/humble/share/visualization_msgs/cmake)\n'}
+[0.641265] (dog_ego_planner) StdoutLine: {'line': b'-- Found tf2: 0.25.19 (/opt/ros/humble/share/tf2/cmake)\n'}
+[0.647890] (dog_ego_planner) StdoutLine: {'line': b'-- Found tf2_ros: 0.25.19 (/opt/ros/humble/share/tf2_ros/cmake)\n'}
+[0.700503] (-) TimerEvent: {}
+[0.746559] (dog_ego_planner) StdoutLine: {'line': b'-- Configuring done (0.7s)\n'}
+[0.756703] (dog_ego_planner) StdoutLine: {'line': b'-- Generating done (0.0s)\n'}
+[0.771207] (dog_ego_planner) StdoutLine: {'line': b'-- Build files have been written to: /home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner\n'}
+[0.778320] (dog_ego_planner) CommandEnded: {'returncode': 0}
+[0.778582] (dog_ego_planner) JobProgress: {'identifier': 'dog_ego_planner', 'progress': 'build'}
+[0.778597] (dog_ego_planner) Command: {'cmd': ['/snap/bin/cmake', '--build', '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner', '--', '-j20', '-l20'], 'cwd': '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('CONDA_PROMPT_MODIFIER', ''), ('LANGUAGE', 'zh_CN:zh'), ('USER', 'hzy'), ('SSH_AGENT_PID', '4209'), ('XDG_SESSION_TYPE', 'x11'), ('GIT_ASKPASS', '/usr/share/cursor/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/usr/local/cuda-11.4/lib64:/usr/local/cuda-11.4/lib64:/heng/livox_ros_driver2_ws/install/livox_ros_driver2/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/hzy'), ('CHROME_DESKTOP', 'cursor.desktop'), ('CONDA_SHLVL', '0'), ('TERM_PROGRAM_VERSION', '2.6.20'), ('DESKTOP_SESSION', 'ubuntu'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/cursor.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('VSCODE_GIT_ASKPASS_MAIN', '/usr/share/cursor/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/usr/share/cursor/cursor'), ('MANAGERPID', '2653'), ('SYSTEMD_EXEC_PID', '3053'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('_CE_M', ''), ('_CONDA_ROOT', '/home/hzy/miniconda3'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '408287'), ('IM_CONFIG_PHASE', '1'), ('COLCON_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'hzy'), ('JOURNAL_STREAM', '8:77465'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'hzy'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('_CE_CONDA', ''), ('FC_FONTATIONS', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('CODELLDB_LAUNCH_CONNECT_FILE', '/home/hzy/.config/Cursor/User/workspaceStorage/61b84a778242bc40a58a6c8ff77d5244/vadimcn.vscode-lldb/rpcaddress.txt'), ('PATH', '/snap/bin:/usr/local/cuda-11.4/bin:/home/hzy/.cursor/extensions/vadimcn.vscode-lldb-1.12.1/bin:/home/hzy/.local/bin:/snap/bin:/home/hzy/miniconda3/condabin:/usr/local/cuda-11.4/bin:/opt/ros/humble/bin:/home/hzy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/hzy-System-Product-Name:@/tmp/.ICE-unix/3024,unix/hzy-System-Product-Name:/tmp/.ICE-unix/3024'), ('INVOCATION_ID', '6995cfed37bf40ba862e06d43d819c7c'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':1'), ('LANG', 'zh_CN.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'), ('XMODIFIERS', '@im=fcitx'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-e833bbcca8.sock'), ('TERM_PROGRAM', 'vscode'), ('CURSOR_TRACE_ID', '5ef0004c35934d42baa5da860856508e'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/tmp/ssh-XXXXXXuC5xmG/agent.4208'), ('AMENT_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2:/opt/ros/humble'), ('CONDA_PYTHON_EXE', '/home/hzy/miniconda3/bin/python'), ('SHELL', '/bin/bash'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('CONDA_DEFAULT_ENV', ''), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('_CONDA_EXE', '/home/hzy/miniconda3/bin/conda'), ('VSCODE_GIT_IPC_AUTH_TOKEN', 'b11c2e3bdd62c56b7e1771189f1db4e68128879ce436051f1639950a1d9c27f5'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('CONDA_EXE', '/home/hzy/miniconda3/bin/conda'), ('CLUTTER_IM_MODULE', 'fcitx'), ('XDG_DATA_DIRS', '/usr/share/ubuntu:/usr/share/gnome:/home/hzy/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('CONDA_PREFIX', ''), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2:/opt/ros/humble')]), 'shell': False}
+[0.800665] (-) TimerEvent: {}
+[0.876249] (dog_ego_planner) StdoutLine: {'line': b'[  8%] \x1b[32mBuilding CXX object CMakeFiles/vendor_local_map.dir/vendor/GridMap2D/src/grid_map.cpp.o\x1b[0m\n'}
+[0.900734] (-) TimerEvent: {}
+[1.000987] (-) TimerEvent: {}
+[1.101234] (-) TimerEvent: {}
+[1.201522] (-) TimerEvent: {}
+[1.301991] (-) TimerEvent: {}
+[1.402452] (-) TimerEvent: {}
+[1.502903] (-) TimerEvent: {}
+[1.603349] (-) TimerEvent: {}
+[1.703798] (-) TimerEvent: {}
+[1.804187] (-) TimerEvent: {}
+[1.902883] (dog_ego_planner) StdoutLine: {'line': b'[ 16%] \x1b[1m\x1b[32mLinking CXX static library libvendor_local_map.a\x1b[0m\n'}
+[1.904241] (-) TimerEvent: {}
+[1.945925] (dog_ego_planner) StdoutLine: {'line': b'[ 16%] Built target vendor_local_map\n'}
+[1.950605] (dog_ego_planner) StdoutLine: {'line': b'[ 25%] \x1b[32mBuilding CXX object CMakeFiles/vendor_path_searching.dir/vendor/path_searching/src/dyn_a_star.cpp.o\x1b[0m\n'}
+[2.004357] (-) TimerEvent: {}
+[2.104658] (-) TimerEvent: {}
+[2.205060] (-) TimerEvent: {}
+[2.306330] (-) TimerEvent: {}
+[2.407184] (-) TimerEvent: {}
+[2.508194] (-) TimerEvent: {}
+[2.608426] (-) TimerEvent: {}
+[2.708732] (-) TimerEvent: {}
+[2.809037] (-) TimerEvent: {}
+[2.909405] (-) TimerEvent: {}
+[3.009743] (-) TimerEvent: {}
+[3.110086] (-) TimerEvent: {}
+[3.212109] (-) TimerEvent: {}
+[3.312331] (-) TimerEvent: {}
+[3.413023] (-) TimerEvent: {}
+[3.473647] (dog_ego_planner) StdoutLine: {'line': b'[ 33%] \x1b[1m\x1b[32mLinking CXX static library libvendor_path_searching.a\x1b[0m\n'}
+[3.512722] (dog_ego_planner) StdoutLine: {'line': b'[ 33%] Built target vendor_path_searching\n'}
+[3.513073] (-) TimerEvent: {}
+[3.521484] (dog_ego_planner) StdoutLine: {'line': b'[ 41%] \x1b[32mBuilding CXX object CMakeFiles/vendor_bspline_opt.dir/vendor/bspline_opt/src/gradient_descent_optimizer.cpp.o\x1b[0m\n'}
+[3.521770] (dog_ego_planner) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding CXX object CMakeFiles/vendor_bspline_opt.dir/vendor/bspline_opt/src/uniform_bspline.cpp.o\x1b[0m\n'}
+[3.521804] (dog_ego_planner) StdoutLine: {'line': b'[ 58%] \x1b[32mBuilding CXX object CMakeFiles/vendor_bspline_opt.dir/vendor/bspline_opt/src/bspline_optimizer.cpp.o\x1b[0m\n'}
+[3.613804] (-) TimerEvent: {}
+[3.714720] (-) TimerEvent: {}
+[3.815839] (-) TimerEvent: {}
+[3.916131] (-) TimerEvent: {}
+[4.012624] (dog_ego_planner) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/gradient_descent_optimizer.cpp:1\x1b[m\x1b[K:\n'}
+[4.012782] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/gradient_descent_optimizer.h:14:34:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic\x07-Wpedantic\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.012820] (dog_ego_planner) StderrLine: {'line': b'   14 |   EIGEN_MAKE_ALIGNED_OPERATOR_NEW\x1b[01;35m\x1b[K;\x1b[m\x1b[K\n'}
+[4.012846] (dog_ego_planner) StderrLine: {'line': b'      |                                  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[4.012869] (dog_ego_planner) StderrLine: {'line': b'      |                                  \x1b[31m\x1b[K-\x1b[m\x1b[K\n'}
+[4.016647] (-) TimerEvent: {}
+[4.117114] (-) TimerEvent: {}
+[4.171657] (dog_ego_planner) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/bspline_optimizer.h:9\x1b[m\x1b[K,\n'}
+[4.171969] (dog_ego_planner) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:1\x1b[m\x1b[K:\n'}
+[4.172183] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/lbfgs.hpp:\x1b[m\x1b[K In function \xe2\x80\x98\x1b[01m\x1b[Kint lbfgs::line_search_morethuente(int, double*, double*, double*, double*, double*, const double*, const double*, const double*, const double*, lbfgs::callback_data_t*, const lbfgs::lbfgs_parameter_t*)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[4.172324] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/lbfgs.hpp:723:54:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kgp\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.172536] (dog_ego_planner) StderrLine: {'line': b'  723 |                                        \x1b[01;35m\x1b[Kconst double *gp\x1b[m\x1b[K,\n'}
+[4.172671] (dog_ego_planner) StderrLine: {'line': b'      |                                        \x1b[01;35m\x1b[K~~~~~~~~~~~~~~^~\x1b[m\x1b[K\n'}
+[4.181741] (dog_ego_planner) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:2\x1b[m\x1b[K:\n'}
+[4.181800] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/gradient_descent_optimizer.h:\x1b[m\x1b[K At global scope:\n'}
+[4.181826] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/gradient_descent_optimizer.h:14:34:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kextra \xe2\x80\x98\x1b[01m\x1b[K;\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic\x07-Wpedantic\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.181850] (dog_ego_planner) StderrLine: {'line': b'   14 |   EIGEN_MAKE_ALIGNED_OPERATOR_NEW\x1b[01;35m\x1b[K;\x1b[m\x1b[K\n'}
+[4.181871] (dog_ego_planner) StderrLine: {'line': b'      |                                  \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[4.181890] (dog_ego_planner) StderrLine: {'line': b'      |                                  \x1b[31m\x1b[K-\x1b[m\x1b[K\n'}
+[4.217225] (-) TimerEvent: {}
+[4.266396] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:\x1b[m\x1b[K In static member function \xe2\x80\x98\x1b[01m\x1b[Kstatic int ego_planner::BsplineOptimizer::earlyExit(void*, const double*, const double*, double, double, double, double, int, int, int)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[4.266610] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:64:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kx\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.266908] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, \x1b[01;35m\x1b[Kconst double *x\x1b[m\x1b[K, const double *g, const double fx, const double xnorm, const double gnorm, const double step, int n, int k, int ls)\n'}
+[4.266937] (dog_ego_planner) StderrLine: {'line': b'      |                                                  \x1b[01;35m\x1b[K~~~~~~~~~~~~~~^\x1b[m\x1b[K\n'}
+[4.266959] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:81:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kg\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.266988] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, \x1b[01;35m\x1b[Kconst double *g\x1b[m\x1b[K, const double fx, const double xnorm, const double gnorm, const double step, int n, int k, int ls)\n'}
+[4.267007] (dog_ego_planner) StderrLine: {'line': b'      |                                                                   \x1b[01;35m\x1b[K~~~~~~~~~~~~~~^\x1b[m\x1b[K\n'}
+[4.267025] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:97:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kfx\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267051] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, \x1b[01;35m\x1b[Kconst double fx\x1b[m\x1b[K, const double xnorm, const double gnorm, const double step, int n, int k, int ls)\n'}
+[4.267069] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                    \x1b[01;35m\x1b[K~~~~~~~~~~~~~^~\x1b[m\x1b[K\n'}
+[4.267087] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:114:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kxnorm\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267106] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, const double fx, \x1b[01;35m\x1b[Kconst double xnorm\x1b[m\x1b[K, const double gnorm, const double step, int n, int k, int ls)\n'}
+[4.267123] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                                     \x1b[01;35m\x1b[K~~~~~~~~~~~~~^~~~~\x1b[m\x1b[K\n'}
+[4.267140] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:134:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kgnorm\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267161] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, const double fx, const double xnorm, \x1b[01;35m\x1b[Kconst double gnorm\x1b[m\x1b[K, const double step, int n, int k, int ls)\n'}
+[4.267178] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                                                         \x1b[01;35m\x1b[K~~~~~~~~~~~~~^~~~~\x1b[m\x1b[K\n'}
+[4.267195] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:154:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kstep\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267212] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, const double fx, const double xnorm, const double gnorm, \x1b[01;35m\x1b[Kconst double step\x1b[m\x1b[K, int n, int k, int ls)\n'}
+[4.267231] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                                                                             \x1b[01;35m\x1b[K~~~~~~~~~~~~~^~~~\x1b[m\x1b[K\n'}
+[4.267248] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:164:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kn\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267265] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, const double fx, const double xnorm, const double gnorm, const double step, \x1b[01;35m\x1b[Kint n\x1b[m\x1b[K, int k, int ls)\n'}
+[4.267281] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                                                                                                \x1b[01;35m\x1b[K~~~~^\x1b[m\x1b[K\n'}
+[4.267298] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:171:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kk\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267314] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, const double fx, const double xnorm, const double gnorm, const double step, int n, \x1b[01;35m\x1b[Kint k\x1b[m\x1b[K, int ls)\n'}
+[4.267331] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                                                                                                       \x1b[01;35m\x1b[K~~~~^\x1b[m\x1b[K\n'}
+[4.267349] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:346:178:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kls\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.267365] (dog_ego_planner) StderrLine: {'line': b'  346 | int BsplineOptimizer::earlyExit(void *func_data, const double *x, const double *g, const double fx, const double xnorm, const double gnorm, const double step, int n, int k, \x1b[01;35m\x1b[Kint ls\x1b[m\x1b[K)\n'}
+[4.267383] (dog_ego_planner) StderrLine: {'line': b'      |                                                                                                                                                                              \x1b[01;35m\x1b[K~~~~^~\x1b[m\x1b[K\n'}
+[4.320758] (-) TimerEvent: {}
+[4.424318] (-) TimerEvent: {}
+[4.468954] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:\x1b[m\x1b[K In member function \xe2\x80\x98\x1b[01m\x1b[Kbool ego_planner::BsplineOptimizer::rebound_optimize()\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[4.469107] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:944:12:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[KISO C++ forbids variable length array \xe2\x80\x98\x1b[01m\x1b[Kq\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wvla\x07-Wvla\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.469137] (dog_ego_planner) StderrLine: {'line': b'  944 |     double \x1b[01;35m\x1b[Kq\x1b[m\x1b[K[variable_num_];\n'}
+[4.469161] (dog_ego_planner) StderrLine: {'line': b'      |            \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[4.483038] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:\x1b[m\x1b[K In member function \xe2\x80\x98\x1b[01m\x1b[Kbool ego_planner::BsplineOptimizer::refine_optimize()\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[4.483334] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:1025:10:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[KISO C++ forbids variable length array \xe2\x80\x98\x1b[01m\x1b[Kq\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wvla\x07-Wvla\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.483479] (dog_ego_planner) StderrLine: {'line': b' 1025 |   double \x1b[01;35m\x1b[Kq\x1b[m\x1b[K[variable_num_];\n'}
+[4.483628] (dog_ego_planner) StderrLine: {'line': b'      |          \x1b[01;35m\x1b[K^\x1b[m\x1b[K\n'}
+[4.524421] (-) TimerEvent: {}
+[4.544228] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:\x1b[m\x1b[K In member function \xe2\x80\x98\x1b[01m\x1b[Kvoid ego_planner::BsplineOptimizer::combineCostRebound(const double*, double*, double&, int)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[4.544523] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:1082:62:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused variable \xe2\x80\x98\x1b[01m\x1b[Kf_turn\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable\x07-Wunused-variable\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.544658] (dog_ego_planner) StderrLine: {'line': b' 1082 |   double f_smoothness = 0, f_distance = 0, f_feasibility = 0,\x1b[01;35m\x1b[Kf_turn\x1b[m\x1b[K = 0,f_kappa = 0;\n'}
+[4.545038] (dog_ego_planner) StderrLine: {'line': b'      |                                                              \x1b[01;35m\x1b[K^~~~~~\x1b[m\x1b[K\n'}
+[4.545615] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/bspline_optimizer.cpp:1082:73:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused variable \xe2\x80\x98\x1b[01m\x1b[Kf_kappa\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable\x07-Wunused-variable\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[4.549427] (dog_ego_planner) StderrLine: {'line': b' 1082 |   double f_smoothness = 0, f_distance = 0, f_feasibility = 0,f_turn = 0,\x1b[01;35m\x1b[Kf_kappa\x1b[m\x1b[K = 0;\n'}
+[4.549776] (dog_ego_planner) StderrLine: {'line': b'      |                                                                         \x1b[01;35m\x1b[K^~~~~~~\x1b[m\x1b[K\n'}
+[4.624507] (-) TimerEvent: {}
+[4.724809] (-) TimerEvent: {}
+[4.825118] (-) TimerEvent: {}
+[4.925727] (-) TimerEvent: {}
+[5.027169] (-) TimerEvent: {}
+[5.128039] (-) TimerEvent: {}
+[5.228760] (-) TimerEvent: {}
+[5.329965] (-) TimerEvent: {}
+[5.430419] (-) TimerEvent: {}
+[5.530912] (-) TimerEvent: {}
+[5.631421] (-) TimerEvent: {}
+[5.731893] (-) TimerEvent: {}
+[5.832433] (-) TimerEvent: {}
+[5.933869] (-) TimerEvent: {}
+[6.034308] (-) TimerEvent: {}
+[6.134885] (-) TimerEvent: {}
+[6.235209] (-) TimerEvent: {}
+[6.335520] (-) TimerEvent: {}
+[6.435836] (-) TimerEvent: {}
+[6.536349] (-) TimerEvent: {}
+[6.637214] (-) TimerEvent: {}
+[6.737454] (-) TimerEvent: {}
+[6.837780] (-) TimerEvent: {}
+[6.938248] (-) TimerEvent: {}
+[7.038706] (-) TimerEvent: {}
+[7.128287] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/uniform_bspline.cpp:\x1b[m\x1b[K In member function \xe2\x80\x98\x1b[01m\x1b[Kvoid ego_planner::UniformBspline::getMeanAndMaxVel(double&, double&)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[7.128446] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/uniform_bspline.cpp:334:27:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[Ktmp\x1b[m\x1b[K\xe2\x80\x99 may be used uninitialized in this function [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmaybe-uninitialized\x07-Wmaybe-uninitialized\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[7.128492] (dog_ego_planner) StderrLine: {'line': b'  334 |     for (double t = tm; \x1b[01;35m\x1b[Kt <= tmp\x1b[m\x1b[K; t += 0.01)\n'}
+[7.128519] (dog_ego_planner) StderrLine: {'line': b'      |                         \x1b[01;35m\x1b[K~~^~~~~~\x1b[m\x1b[K\n'}
+[7.128539] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/uniform_bspline.cpp:334:27:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[Ktm\x1b[m\x1b[K\xe2\x80\x99 may be used uninitialized in this function [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmaybe-uninitialized\x07-Wmaybe-uninitialized\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[7.138806] (-) TimerEvent: {}
+[7.144511] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/uniform_bspline.cpp:\x1b[m\x1b[K In member function \xe2\x80\x98\x1b[01m\x1b[Kvoid ego_planner::UniformBspline::getMeanAndMaxAcc(double&, double&)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[7.144638] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/uniform_bspline.cpp:360:27:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[Ktmp\x1b[m\x1b[K\xe2\x80\x99 may be used uninitialized in this function [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmaybe-uninitialized\x07-Wmaybe-uninitialized\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[7.144684] (dog_ego_planner) StderrLine: {'line': b'  360 |     for (double t = tm; \x1b[01;35m\x1b[Kt <= tmp\x1b[m\x1b[K; t += 0.01)\n'}
+[7.144709] (dog_ego_planner) StderrLine: {'line': b'      |                         \x1b[01;35m\x1b[K~~^~~~~~\x1b[m\x1b[K\n'}
+[7.144731] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/src/uniform_bspline.cpp:360:27:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[Ktm\x1b[m\x1b[K\xe2\x80\x99 may be used uninitialized in this function [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmaybe-uninitialized\x07-Wmaybe-uninitialized\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[7.238907] (-) TimerEvent: {}
+[7.339305] (-) TimerEvent: {}
+[7.439693] (-) TimerEvent: {}
+[7.540173] (-) TimerEvent: {}
+[7.641021] (-) TimerEvent: {}
+[7.741270] (-) TimerEvent: {}
+[7.841688] (-) TimerEvent: {}
+[7.942621] (-) TimerEvent: {}
+[8.042876] (-) TimerEvent: {}
+[8.143276] (-) TimerEvent: {}
+[8.243629] (-) TimerEvent: {}
+[8.344454] (-) TimerEvent: {}
+[8.444733] (-) TimerEvent: {}
+[8.499780] (dog_ego_planner) StdoutLine: {'line': b'[ 66%] \x1b[1m\x1b[32mLinking CXX static library libvendor_bspline_opt.a\x1b[0m\n'}
+[8.544813] (-) TimerEvent: {}
+[8.615303] (dog_ego_planner) StdoutLine: {'line': b'[ 66%] Built target vendor_bspline_opt\n'}
+[8.624180] (dog_ego_planner) StdoutLine: {'line': b'[ 75%] \x1b[32mBuilding CXX object CMakeFiles/dog_ego_core.dir/src/planner_interface_dog.cpp.o\x1b[0m\n'}
+[8.644914] (-) TimerEvent: {}
+[8.745201] (-) TimerEvent: {}
+[8.845427] (-) TimerEvent: {}
+[8.945771] (-) TimerEvent: {}
+[9.046116] (-) TimerEvent: {}
+[9.146534] (-) TimerEvent: {}
+[9.220695] (dog_ego_planner) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/bspline_optimizer.h:9\x1b[m\x1b[K,\n'}
+[9.220844] (dog_ego_planner) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/include/dog_ego_planner/planner_interface_dog.h:13\x1b[m\x1b[K,\n'}
+[9.220874] (dog_ego_planner) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/src/planner_interface_dog.cpp:1\x1b[m\x1b[K:\n'}
+[9.220905] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/lbfgs.hpp:\x1b[m\x1b[K In function \xe2\x80\x98\x1b[01m\x1b[Kint lbfgs::line_search_morethuente(int, double*, double*, double*, double*, double*, const double*, const double*, const double*, const double*, lbfgs::callback_data_t*, const lbfgs::lbfgs_parameter_t*)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[9.220930] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/lbfgs.hpp:723:54:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kgp\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[9.220950] (dog_ego_planner) StderrLine: {'line': b'  723 |                                        \x1b[01;35m\x1b[Kconst double *gp\x1b[m\x1b[K,\n'}
+[9.220969] (dog_ego_planner) StderrLine: {'line': b'      |                                        \x1b[01;35m\x1b[K~~~~~~~~~~~~~~^~\x1b[m\x1b[K\n'}
+[9.247058] (-) TimerEvent: {}
+[9.347394] (-) TimerEvent: {}
+[9.447858] (-) TimerEvent: {}
+[9.548090] (-) TimerEvent: {}
+[9.648500] (-) TimerEvent: {}
+[9.748813] (-) TimerEvent: {}
+[9.849126] (-) TimerEvent: {}
+[9.949361] (-) TimerEvent: {}
+[10.050265] (-) TimerEvent: {}
+[10.092378] (dog_ego_planner) StdoutLine: {'line': b'[ 83%] \x1b[1m\x1b[32mLinking CXX static library libdog_ego_core.a\x1b[0m\n'}
+[10.130800] (dog_ego_planner) StdoutLine: {'line': b'[ 83%] Built target dog_ego_core\n'}
+[10.139431] (dog_ego_planner) StdoutLine: {'line': b'[ 91%] \x1b[32mBuilding CXX object CMakeFiles/dog_planner_node.dir/src/dog_planner_node.cpp.o\x1b[0m\n'}
+[10.150399] (-) TimerEvent: {}
+[10.251266] (-) TimerEvent: {}
+[10.352059] (-) TimerEvent: {}
+[10.452415] (-) TimerEvent: {}
+[10.552646] (-) TimerEvent: {}
+[10.652885] (-) TimerEvent: {}
+[10.753126] (-) TimerEvent: {}
+[10.853369] (-) TimerEvent: {}
+[10.953681] (-) TimerEvent: {}
+[11.053942] (-) TimerEvent: {}
+[11.154263] (-) TimerEvent: {}
+[11.254522] (-) TimerEvent: {}
+[11.354732] (-) TimerEvent: {}
+[11.454971] (-) TimerEvent: {}
+[11.555213] (-) TimerEvent: {}
+[11.655815] (-) TimerEvent: {}
+[11.756638] (-) TimerEvent: {}
+[11.856895] (-) TimerEvent: {}
+[11.894615] (dog_ego_planner) StderrLine: {'line': b'In file included from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/bspline_optimizer.h:9\x1b[m\x1b[K,\n'}
+[11.894766] (dog_ego_planner) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/include/dog_ego_planner/planner_interface_dog.h:13\x1b[m\x1b[K,\n'}
+[11.894798] (dog_ego_planner) StderrLine: {'line': b'                 from \x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/src/dog_planner_node.cpp:21\x1b[m\x1b[K:\n'}
+[11.894820] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/lbfgs.hpp:\x1b[m\x1b[K In function \xe2\x80\x98\x1b[01m\x1b[Kint lbfgs::line_search_morethuente(int, double*, double*, double*, double*, double*, const double*, const double*, const double*, const double*, lbfgs::callback_data_t*, const lbfgs::lbfgs_parameter_t*)\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[11.894844] (dog_ego_planner) StderrLine: {'line': b'\x1b[01m\x1b[K/home/hzy/0.0002233/LocalPlanner/vendor/bspline_opt/include/bspline_opt/lbfgs.hpp:723:54:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[Kunused parameter \xe2\x80\x98\x1b[01m\x1b[Kgp\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K\x1b]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter\x07-Wunused-parameter\x1b]8;;\x07\x1b[m\x1b[K]\n'}
+[11.895038] (dog_ego_planner) StderrLine: {'line': b'  723 |                                        \x1b[01;35m\x1b[Kconst double *gp\x1b[m\x1b[K,\n'}
+[11.895137] (dog_ego_planner) StderrLine: {'line': b'      |                                        \x1b[01;35m\x1b[K~~~~~~~~~~~~~~^~\x1b[m\x1b[K\n'}
+[11.957607] (-) TimerEvent: {}
+[12.059797] (-) TimerEvent: {}
+[12.160839] (-) TimerEvent: {}
+[12.261064] (-) TimerEvent: {}
+[12.361474] (-) TimerEvent: {}
+[12.461825] (-) TimerEvent: {}
+[12.562174] (-) TimerEvent: {}
+[12.662502] (-) TimerEvent: {}
+[12.762830] (-) TimerEvent: {}
+[12.863103] (-) TimerEvent: {}
+[12.963349] (-) TimerEvent: {}
+[13.064171] (-) TimerEvent: {}
+[13.164538] (-) TimerEvent: {}
+[13.264816] (-) TimerEvent: {}
+[13.365074] (-) TimerEvent: {}
+[13.465397] (-) TimerEvent: {}
+[13.565636] (-) TimerEvent: {}
+[13.666008] (-) TimerEvent: {}
+[13.766259] (-) TimerEvent: {}
+[13.866615] (-) TimerEvent: {}
+[13.966878] (-) TimerEvent: {}
+[14.067195] (-) TimerEvent: {}
+[14.167436] (-) TimerEvent: {}
+[14.267652] (-) TimerEvent: {}
+[14.368053] (-) TimerEvent: {}
+[14.468391] (-) TimerEvent: {}
+[14.568734] (-) TimerEvent: {}
+[14.669015] (-) TimerEvent: {}
+[14.769266] (-) TimerEvent: {}
+[14.869507] (-) TimerEvent: {}
+[14.969715] (-) TimerEvent: {}
+[15.070212] (-) TimerEvent: {}
+[15.170462] (-) TimerEvent: {}
+[15.270732] (-) TimerEvent: {}
+[15.370996] (-) TimerEvent: {}
+[15.471251] (-) TimerEvent: {}
+[15.571614] (-) TimerEvent: {}
+[15.672578] (-) TimerEvent: {}
+[15.773799] (-) TimerEvent: {}
+[15.874217] (-) TimerEvent: {}
+[15.975144] (-) TimerEvent: {}
+[16.075393] (-) TimerEvent: {}
+[16.177501] (-) TimerEvent: {}
+[16.277754] (-) TimerEvent: {}
+[16.377968] (-) TimerEvent: {}
+[16.478200] (-) TimerEvent: {}
+[16.578478] (-) TimerEvent: {}
+[16.678795] (-) TimerEvent: {}
+[16.779079] (-) TimerEvent: {}
+[16.879322] (-) TimerEvent: {}
+[16.979900] (-) TimerEvent: {}
+[17.080081] (-) TimerEvent: {}
+[17.180321] (-) TimerEvent: {}
+[17.280635] (-) TimerEvent: {}
+[17.381026] (-) TimerEvent: {}
+[17.481439] (-) TimerEvent: {}
+[17.581868] (-) TimerEvent: {}
+[17.682219] (-) TimerEvent: {}
+[17.782475] (-) TimerEvent: {}
+[17.882709] (-) TimerEvent: {}
+[17.982956] (-) TimerEvent: {}
+[18.083192] (-) TimerEvent: {}
+[18.183433] (-) TimerEvent: {}
+[18.283777] (-) TimerEvent: {}
+[18.384079] (-) TimerEvent: {}
+[18.484623] (-) TimerEvent: {}
+[18.585118] (-) TimerEvent: {}
+[18.685362] (-) TimerEvent: {}
+[18.785607] (-) TimerEvent: {}
+[18.885856] (-) TimerEvent: {}
+[18.986183] (-) TimerEvent: {}
+[19.086703] (-) TimerEvent: {}
+[19.187892] (-) TimerEvent: {}
+[19.288242] (-) TimerEvent: {}
+[19.388613] (-) TimerEvent: {}
+[19.488942] (-) TimerEvent: {}
+[19.589246] (-) TimerEvent: {}
+[19.689557] (-) TimerEvent: {}
+[19.790647] (-) TimerEvent: {}
+[19.890993] (-) TimerEvent: {}
+[19.991426] (-) TimerEvent: {}
+[20.091760] (-) TimerEvent: {}
+[20.192587] (-) TimerEvent: {}
+[20.292928] (-) TimerEvent: {}
+[20.393269] (-) TimerEvent: {}
+[20.493564] (-) TimerEvent: {}
+[20.593940] (-) TimerEvent: {}
+[20.694330] (-) TimerEvent: {}
+[20.794718] (-) TimerEvent: {}
+[20.894969] (-) TimerEvent: {}
+[20.995280] (-) TimerEvent: {}
+[21.095579] (-) TimerEvent: {}
+[21.195859] (-) TimerEvent: {}
+[21.296442] (-) TimerEvent: {}
+[21.396928] (-) TimerEvent: {}
+[21.497256] (-) TimerEvent: {}
+[21.597970] (-) TimerEvent: {}
+[21.698217] (-) TimerEvent: {}
+[21.798946] (-) TimerEvent: {}
+[21.899369] (-) TimerEvent: {}
+[21.999912] (-) TimerEvent: {}
+[22.100461] (-) TimerEvent: {}
+[22.200951] (-) TimerEvent: {}
+[22.301543] (-) TimerEvent: {}
+[22.402042] (-) TimerEvent: {}
+[22.502279] (-) TimerEvent: {}
+[22.602501] (-) TimerEvent: {}
+[22.702781] (-) TimerEvent: {}
+[22.803033] (-) TimerEvent: {}
+[22.903525] (-) TimerEvent: {}
+[23.004051] (-) TimerEvent: {}
+[23.104530] (-) TimerEvent: {}
+[23.205712] (-) TimerEvent: {}
+[23.307461] (-) TimerEvent: {}
+[23.408144] (-) TimerEvent: {}
+[23.510863] (-) TimerEvent: {}
+[23.611724] (-) TimerEvent: {}
+[23.712107] (-) TimerEvent: {}
+[23.812356] (-) TimerEvent: {}
+[23.912722] (-) TimerEvent: {}
+[24.012964] (-) TimerEvent: {}
+[24.113211] (-) TimerEvent: {}
+[24.213502] (-) TimerEvent: {}
+[24.313860] (-) TimerEvent: {}
+[24.414102] (-) TimerEvent: {}
+[24.514717] (-) TimerEvent: {}
+[24.615132] (-) TimerEvent: {}
+[24.715722] (-) TimerEvent: {}
+[24.816140] (-) TimerEvent: {}
+[24.916877] (-) TimerEvent: {}
+[25.017387] (-) TimerEvent: {}
+[25.117852] (-) TimerEvent: {}
+[25.218351] (-) TimerEvent: {}
+[25.319305] (-) TimerEvent: {}
+[25.420161] (-) TimerEvent: {}
+[25.525799] (-) TimerEvent: {}
+[25.626557] (-) TimerEvent: {}
+[25.727146] (-) TimerEvent: {}
+[25.830362] (-) TimerEvent: {}
+[25.930857] (-) TimerEvent: {}
+[25.991368] (dog_ego_planner) StdoutLine: {'line': b'[100%] \x1b[1m\x1b[32mLinking CXX executable dog_planner_node\x1b[0m\n'}
+[26.031013] (-) TimerEvent: {}
+[26.131223] (-) TimerEvent: {}
+[26.231480] (-) TimerEvent: {}
+[26.331728] (-) TimerEvent: {}
+[26.432129] (-) TimerEvent: {}
+[26.480522] (dog_ego_planner) StdoutLine: {'line': b'[100%] Built target dog_planner_node\n'}
+[26.484799] (dog_ego_planner) CommandEnded: {'returncode': 0}
+[26.485337] (dog_ego_planner) JobProgress: {'identifier': 'dog_ego_planner', 'progress': 'install'}
+[26.532262] (-) TimerEvent: {}
+[26.574366] (dog_ego_planner) Command: {'cmd': ['/snap/bin/cmake', '--install', '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner'], 'cwd': '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('CONDA_PROMPT_MODIFIER', ''), ('LANGUAGE', 'zh_CN:zh'), ('USER', 'hzy'), ('SSH_AGENT_PID', '4209'), ('XDG_SESSION_TYPE', 'x11'), ('GIT_ASKPASS', '/usr/share/cursor/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/usr/local/cuda-11.4/lib64:/usr/local/cuda-11.4/lib64:/heng/livox_ros_driver2_ws/install/livox_ros_driver2/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/hzy'), ('CHROME_DESKTOP', 'cursor.desktop'), ('CONDA_SHLVL', '0'), ('TERM_PROGRAM_VERSION', '2.6.20'), ('DESKTOP_SESSION', 'ubuntu'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/cursor.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('VSCODE_GIT_ASKPASS_MAIN', '/usr/share/cursor/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/usr/share/cursor/cursor'), ('MANAGERPID', '2653'), ('SYSTEMD_EXEC_PID', '3053'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('_CE_M', ''), ('_CONDA_ROOT', '/home/hzy/miniconda3'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '408287'), ('IM_CONFIG_PHASE', '1'), ('COLCON_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'hzy'), ('JOURNAL_STREAM', '8:77465'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'hzy'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('_CE_CONDA', ''), ('FC_FONTATIONS', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('CODELLDB_LAUNCH_CONNECT_FILE', '/home/hzy/.config/Cursor/User/workspaceStorage/61b84a778242bc40a58a6c8ff77d5244/vadimcn.vscode-lldb/rpcaddress.txt'), ('PATH', '/snap/bin:/usr/local/cuda-11.4/bin:/home/hzy/.cursor/extensions/vadimcn.vscode-lldb-1.12.1/bin:/home/hzy/.local/bin:/snap/bin:/home/hzy/miniconda3/condabin:/usr/local/cuda-11.4/bin:/opt/ros/humble/bin:/home/hzy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/hzy-System-Product-Name:@/tmp/.ICE-unix/3024,unix/hzy-System-Product-Name:/tmp/.ICE-unix/3024'), ('INVOCATION_ID', '6995cfed37bf40ba862e06d43d819c7c'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':1'), ('LANG', 'zh_CN.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'), ('XMODIFIERS', '@im=fcitx'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-e833bbcca8.sock'), ('TERM_PROGRAM', 'vscode'), ('CURSOR_TRACE_ID', '5ef0004c35934d42baa5da860856508e'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/tmp/ssh-XXXXXXuC5xmG/agent.4208'), ('AMENT_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2:/opt/ros/humble'), ('CONDA_PYTHON_EXE', '/home/hzy/miniconda3/bin/python'), ('SHELL', '/bin/bash'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('CONDA_DEFAULT_ENV', ''), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('_CONDA_EXE', '/home/hzy/miniconda3/bin/conda'), ('VSCODE_GIT_IPC_AUTH_TOKEN', 'b11c2e3bdd62c56b7e1771189f1db4e68128879ce436051f1639950a1d9c27f5'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/home/hzy/0.0002233/LocalPlanner/build/dog_ego_planner'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('CONDA_EXE', '/home/hzy/miniconda3/bin/conda'), ('CLUTTER_IM_MODULE', 'fcitx'), ('XDG_DATA_DIRS', '/usr/share/ubuntu:/usr/share/gnome:/home/hzy/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('CONDA_PREFIX', ''), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/heng/livox_ros_driver2_ws/install/livox_ros_driver2:/opt/ros/humble')]), 'shell': False}
+[26.632346] (-) TimerEvent: {}
+[26.647617] (dog_ego_planner) StdoutLine: {'line': b'-- Install configuration: "Debug"\n'}
+[26.647761] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/lib/dog_ego_planner/dog_planner_node\n'}
+[26.673016] (dog_ego_planner) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/lib/dog_ego_planner/dog_planner_node" to ""\n'}
+[26.673157] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/launch\n'}
+[26.673188] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/launch/robot_launch.py\n'}
+[26.673244] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/launch/__pycache__\n'}
+[26.673267] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/launch/__pycache__/robot_launch.cpython-310.pyc\n'}
+[26.673323] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/planner/plan_manage/rviz\n'}
+[26.673343] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/planner/plan_manage/rviz/dog_debug.rviz\n'}
+[26.673415] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/ament_index/resource_index/package_run_dependencies/dog_ego_planner\n'}
+[26.674295] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/ament_index/resource_index/parent_prefix_path/dog_ego_planner\n'}
+[26.674451] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/environment/ament_prefix_path.sh\n'}
+[26.674598] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/environment/ament_prefix_path.dsv\n'}
+[26.674729] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/environment/path.sh\n'}
+[26.674876] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/environment/path.dsv\n'}
+[26.675003] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/local_setup.bash\n'}
+[26.675078] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/local_setup.sh\n'}
+[26.675212] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/local_setup.zsh\n'}
+[26.675287] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/local_setup.dsv\n'}
+[26.675404] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/package.dsv\n'}
+[26.675494] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/ament_index/resource_index/packages/dog_ego_planner\n'}
+[26.675571] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/cmake/dog_ego_plannerConfig.cmake\n'}
+[26.675600] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/cmake/dog_ego_plannerConfig-version.cmake\n'}
+[26.676055] (dog_ego_planner) StdoutLine: {'line': b'-- Installing: /home/hzy/0.0002233/LocalPlanner/install/dog_ego_planner/share/dog_ego_planner/package.xml\n'}
+[26.678602] (dog_ego_planner) CommandEnded: {'returncode': 0}
+[26.685985] (dog_ego_planner) JobEnded: {'identifier': 'dog_ego_planner', 'rc': 0}
+[26.686561] (-) EventReactorShutdown: {}
