@@ -148,6 +148,7 @@ public:
     occupancy_publish_freq_ = declare_parameter<double>("occupancy_publish_freq", -1.0);
     self_obstacle_clear_radius_ = declare_parameter<double>("self_obstacle_clear_radius", 0.45);
     cloud_tf_fallback_max_age_ms_ = declare_parameter<int>("cloud_tf_fallback_max_age_ms", 500);
+    global_path_update_interval_s_ = declare_parameter<double>("global_path_update_interval_s", 1.0);
     if_test_pct_path_update_ = declare_parameter<bool>("if_test_pct_path_update", true);
     if_test_pct_path_update_tolerance_ = declare_parameter<double>("if_test_pct_path_update_tolerance", 0.01);
     replan_failure_cooldown_ms_ = declare_parameter<int>("replan_failure_cooldown_ms", 500);
@@ -187,6 +188,13 @@ public:
 
     const int replan_ms = static_cast<int>(std::round(1000.0 / std::max(1.0, replan_freq_)));
     replan_timer_ = create_wall_timer(std::chrono::milliseconds(replan_ms), [this] { replanTick(); });
+
+    // 定时器：每隔 global_path_update_interval_s_ 秒根据 /pct_path 和当前 /odometry 重新计算全局未完成路径
+    if (global_path_update_interval_s_ > 0.0) {
+      const int global_path_ms = static_cast<int>(std::round(global_path_update_interval_s_ * 1000.0));
+      global_path_update_timer_ =
+        create_wall_timer(std::chrono::milliseconds(global_path_ms), [this] { updateGlobalUnfinished(); });
+    }
   }
 
 private:
@@ -860,6 +868,7 @@ private:
   double occupancy_publish_freq_{-1.0};
   double self_obstacle_clear_radius_{0.45};
   int cloud_tf_fallback_max_age_ms_{500};
+  double global_path_update_interval_s_{1.0};
   bool if_test_pct_path_update_{true};
   double if_test_pct_path_update_tolerance_{0.01};
   int replan_failure_cooldown_ms_{500};
@@ -875,6 +884,7 @@ private:
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr pub_occupancy_map_;
 
   rclcpp::TimerBase::SharedPtr replan_timer_;
+  rclcpp::TimerBase::SharedPtr global_path_update_timer_;
 
   // Latest inputs
   nav_msgs::msg::Odometry last_odom_{};
