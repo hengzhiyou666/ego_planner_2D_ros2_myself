@@ -1,6 +1,7 @@
 #include "bspline_opt/bspline_optimizer.h"
 #include "bspline_opt/gradient_descent_optimizer.h"
 #include <chrono>
+#include <iomanip>
 
 namespace ego_planner
 {
@@ -943,7 +944,8 @@ bool BsplineOptimizer::rebound_optimize()
   bool flag_force_return, flag_occ, success;
   new_lambda2_ = lambda2_;
   constexpr int MAX_RESART_NUMS_SET = 3;
-  const int max_rebound_times = (max_rebound_retries_ < 0) ? 0 : max_rebound_retries_;  // 防止单次重规划在反弹阶段长时间重试导致CPU飙高
+  const int max_rebound_times = (max_rebound_retries_ < 0) ? 0 : max_rebound_retries_;
+  const auto opt_start_time = std::chrono::steady_clock::now();
   std::cout << "start optimze" << std::endl;
 
   do
@@ -1031,7 +1033,9 @@ bool BsplineOptimizer::rebound_optimize()
   } while ((flag_occ && restart_nums < MAX_RESART_NUMS_SET) ||
            (flag_force_return && force_stop_type_ == STOP_FOR_REBOUND && rebound_times < max_rebound_times));
   
-  std::cout << "optimuze complete" << std::endl;
+  const auto opt_end_time = std::chrono::steady_clock::now();
+  const double opt_elapsed_ms = std::chrono::duration<double, std::milli>(opt_end_time - opt_start_time).count();
+  std::cout << "===== 本次规划消耗时间：" << std::fixed << std::setprecision(1) << opt_elapsed_ms << " ms =====" << std::endl;
   return success;
 }
 

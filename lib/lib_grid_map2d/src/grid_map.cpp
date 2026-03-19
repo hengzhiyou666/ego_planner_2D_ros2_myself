@@ -74,8 +74,10 @@ void GridMap2D::resetGrids() {
 void GridMap2D::setObstacle(const Eigen::Vector2i& grid_index, bool is_obstacle) {
     // 1. 校验栅格索引合法性
     if (!isIndexValid(grid_index)) {
-        std::cerr << "[setObstacle] 警告：栅格索引（" << grid_index.x() << "," << grid_index.y() 
-                  << "）超出范围（最大：(" << map_size_.x()-1 << "," << map_size_.y()-1 << ")），不执行设置" << std::endl;
+        if (printf_open_or_not_) {
+            std::cerr << "[setObstacle] 警告：栅格索引（" << grid_index.x() << "," << grid_index.y()
+                      << "）超出范围（最大：(" << map_size_.x()-1 << "," << map_size_.y()-1 << ")），不执行设置" << std::endl;
+        }
         return;
     }
 
@@ -312,10 +314,7 @@ bool GridMap2D::isIndexValid(const Eigen::Vector2i& grid_index) const {
     // 列索引（x）：[0, 列数-1]；行索引（y）：[0, 行数-1]
     bool valid = (grid_index.x() >= 0 && grid_index.x() < map_size_.x()) &&
                  (grid_index.y() >= 0 && grid_index.y() < map_size_.y());
-    if (!valid) {
-        std::cerr << "[isIndexValid] 栅格索引（" << grid_index.x() << "," << grid_index.y() 
-                  << "）无效！地图范围：列[0," << map_size_.x()-1 << "], 行[0," << map_size_.y()-1 << "]" << std::endl;
-    }
+    // 越界在搜索和碰撞检测中是高频事件，避免逐点打印导致终端刷屏与额外开销。
     return valid;
 }
 

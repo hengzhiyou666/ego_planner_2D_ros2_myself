@@ -44,7 +44,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("debug", default_value="true"),
             DeclareLaunchArgument("params_file", default_value=default_params_file),
-            DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument("use_sim_time", default_value="true"),
             dog_node,
             rviz_node,
         ]

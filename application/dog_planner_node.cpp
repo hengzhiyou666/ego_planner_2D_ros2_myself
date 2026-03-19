@@ -142,8 +142,14 @@ public:
     cloud_valid_y_abs_max_ = declare_parameter<double>("cloud_valid_y_abs_max", 200.0);
     cloud_valid_z_min_ = declare_parameter<double>("cloud_valid_z_min", -3.0);
     cloud_valid_z_max_ = declare_parameter<double>("cloud_valid_z_max", 5.0);
+    grid_map_size_m_ = declare_parameter<double>("grid_map_size_m", 40.0);
+    grid_map_resolution_ = declare_parameter<double>("grid_map_resolution", 0.1);
+    grid_inflate_radius_ = declare_parameter<double>("grid_inflate_radius", 0.20);
+    occupancy_publish_freq_ = declare_parameter<double>("occupancy_publish_freq", -1.0);
     self_obstacle_clear_radius_ = declare_parameter<double>("self_obstacle_clear_radius", 0.45);
     cloud_tf_fallback_max_age_ms_ = declare_parameter<int>("cloud_tf_fallback_max_age_ms", 500);
+    if_test_pct_path_update_ = declare_parameter<bool>("if_test_pct_path_update", true);
+    if_test_pct_path_update_tolerance_ = declare_parameter<double>("if_test_pct_path_update_tolerance", 0.01);
     replan_failure_cooldown_ms_ = declare_parameter<int>("replan_failure_cooldown_ms", 500);
     max_consecutive_failures_before_cooldown_ =
       declare_parameter<int>("max_consecutive_failures_before_cooldown", 3);
@@ -154,7 +160,7 @@ public:
 
     path_sub_ = create_subscription<nav_msgs::msg::Path>(
       "/pct_path", rclcpp::QoS(10),
-      [this](nav_msgs::msg::Path::SharedPtr msg) { onPctPath(*msg); });
+      [this](nav_msgs::msg::Path::SharedPtr msg) { autofunction_dealwith_pct_path(*msg); });
 
     // 订阅激光点云话题：队列深度为 10，收到每帧点云后交给 autofunction_dealwith_lidar_points 进行预处理与建图更新。
     cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -173,12 +179,11 @@ public:
     // Init planner core
     planner_.initParam(max_vel_, max_acc_, max_jerk_);
     planner_.initGridMap(
-      200.0, 200.0, 0.1, Eigen::Vector2d(-100.0, -100.0),
-      0.20 /*inflate_radius*/);
+      grid_map_size_m_, grid_map_size_m_, grid_map_resolution_,
+      Eigen::Vector2d(-grid_map_size_m_ / 2.0, -grid_map_size_m_ / 2.0),
+      grid_inflate_radius_);
     planner_.setPrintfOpenOrNot(printf_open_or_not_);
     planner_.setMaxReboundRetries(max_rebound_retries_);
-
-    global_timer_ = create_wall_timer(std::chrono::milliseconds(200), [this] { updateGlobalUnfinished(); });
 
     const int replan_ms = static_cast<int>(std::round(1000.0 / std::max(1.0, replan_freq_)));
     replan_timer_ = create_wall_timer(std::chrono::milliseconds(replan_ms), [this] { replanTick(); });
@@ -191,10 +196,31 @@ private:
     have_odom_ = true;
   }
 
-  void onPctPath(const nav_msgs::msg::Path& msg)
+  void autofunction_dealwith_pct_path(const nav_msgs::msg::Path& msg)
   {
+    if (msg.poses.empty()) {
+      have_pct_path_ = false;
+      return;
+    }
+    if (if_test_pct_path_update_ && isSamePath(msg, last_pct_path_)) {
+      return;
+    }
     last_pct_path_ = msg;
-    have_pct_path_ = !msg.poses.empty();
+    have_pct_path_ = true;
+    updateGlobalUnfinished();
+  }
+
+  bool isSamePath(const nav_msgs::msg::Path& a, const nav_msgs::msg::Path& b) const
+  {
+    if (a.poses.size() != b.poses.size()) return false;
+    if (a.poses.empty()) return true;
+    const double tol2 = if_test_pct_path_update_tolerance_ * if_test_pct_path_update_tolerance_;
+    for (size_t i = 0; i < a.poses.size(); ++i) {
+      const double dx = a.poses[i].pose.position.x - b.poses[i].pose.position.x;
+      const double dy = a.poses[i].pose.position.y - b.poses[i].pose.position.y;
+      if (dx * dx + dy * dy > tol2) return false;
+    }
+    return true;
   }
 
   // 点云回调主入口：
@@ -235,6 +261,8 @@ private:
     // 3) 将点从传感器坐标系转换到 head_init；
     // 4) 执行全局有效范围过滤（x/y 绝对值范围、z 范围）；
     // 5) 在有效点中再按障碍高度窗 [0.1, 2.0] 提取用于避障的点。
+    const double cur_x = have_odom_ ? last_odom_.pose.pose.position.x : 0.0;
+    const double cur_y = have_odom_ ? last_odom_.pose.pose.position.y : 0.0;
     std::vector<std::array<float, 3>> kept;
     std::vector<dog_ego_planner::Obstacle2D> new_obs2d;
     // 预留约一半容量，降低动态扩容开销（经验值，避免过度保守）。
@@ -252,11 +280,13 @@ private:
 
         // 先做坐标转换，再执行范围与高度过滤，确保后续障碍栅格与规划坐标系一致。
         const Eigen::Vector3d p_head = transformPointCloudToHeadInit(p_sensor, cloud_to_head_tf);
-        const bool valid_range = std::isfinite(p_head.x()) && std::isfinite(p_head.y()) && std::isfinite(p_head.z()) &&
-                                 std::abs(p_head.x()) <= cloud_valid_x_abs_max_ &&
-                                 std::abs(p_head.y()) <= cloud_valid_y_abs_max_ &&
-                                 p_head.z() >= cloud_valid_z_min_ && p_head.z() <= cloud_valid_z_max_;
-        if (!valid_range) continue;
+        if (!std::isfinite(p_head.x()) || !std::isfinite(p_head.y()) || !std::isfinite(p_head.z())) continue;
+        if (p_head.z() < cloud_valid_z_min_ || p_head.z() > cloud_valid_z_max_) continue;
+        const double map_half = grid_map_size_m_ / 2.0;
+        const bool in_map = have_odom_
+          ? (std::abs(p_head.x() - cur_x) < map_half && std::abs(p_head.y() - cur_y) < map_half)
+          : (std::abs(p_head.x()) < map_half && std::abs(p_head.y()) < map_half);
+        if (!in_map) continue;
 
         if (p_head.z() >= 0.1 && p_head.z() <= 2.0) {
           // kept: 用于发布过滤后的 debug 点云（保留 xyz）。
@@ -673,6 +703,19 @@ private:
     return filtered;
   }
 
+  std::vector<Eigen::Vector2d> buildCurrentUnfinished(const Eigen::Vector2d& cur) const
+  {
+    if (last_global_unfinished_pts_.size() < 2) return {};
+    const size_t idx = closestIndex(last_global_unfinished_pts_, cur);
+    std::vector<Eigen::Vector2d> result;
+    result.reserve(1 + (last_global_unfinished_pts_.size() - idx));
+    result.push_back(cur);
+    for (size_t i = idx; i < last_global_unfinished_pts_.size(); ++i) {
+      result.push_back(last_global_unfinished_pts_[i]);
+    }
+    return result;
+  }
+
   // 定时器回调：判断重规划触发条件，并执行一次局部重规划。
   void replanTick()
   {
@@ -699,9 +742,14 @@ private:
               << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
               << " ================" << std::endl;
 
+    // 用当前 odom 裁剪全局未完成路径：从最近点开始，前面补上当前位置，
+    // 保证局部规划起点始终跟随 /odometry，而不依赖 updateGlobalUnfinished 的调用时机。
+    const std::vector<Eigen::Vector2d> current_unfinished = buildCurrentUnfinished(cur);
+    if (current_unfinished.size() < 2) return;
+
     // Build curve1: 7m horizon from current A along unfinished path.
-    Eigen::Vector2d temp_goal = last_global_unfinished_pts_.back();
-    const std::vector<Eigen::Vector2d> curve1 = takeHorizonCurve1(last_global_unfinished_pts_, planning_horizon_, temp_goal);
+    Eigen::Vector2d temp_goal = current_unfinished.back();
+    const std::vector<Eigen::Vector2d> curve1 = takeHorizonCurve1(current_unfinished, planning_horizon_, temp_goal);
     if (curve1.size() < 4) return;
 
     // Control points sampling (paper rule): every 3 dense points, keep key turns.
@@ -717,7 +765,16 @@ private:
       // 保护：剔除机器人自身附近小半径障碍，避免“起点在障碍物内”导致重规划风暴。
       const auto planning_obs = filterObstaclesNearRobot(last_obs2d_, cur);
       planner_.setObstacles(planning_obs);
-      publishOccupancyMap();
+      bool should_publish_occ = true;
+      if (occupancy_publish_freq_ > 0.0) {
+        const auto now_steady = std::chrono::steady_clock::now();
+        const int interval_ms = static_cast<int>(std::round(1000.0 / occupancy_publish_freq_));
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now_steady - last_occupancy_publish_time_).count();
+        should_publish_occ = (elapsed_ms >= interval_ms);
+        if (should_publish_occ) last_occupancy_publish_time_ = now_steady;
+      }
+      if (should_publish_occ) publishOccupancyMap();
       planner_obstacles_dirty_ = false;
     }
     planner_.setReferencePath(ctrl_pts);
@@ -797,8 +854,14 @@ private:
   double cloud_valid_y_abs_max_{200.0};
   double cloud_valid_z_min_{-3.0};
   double cloud_valid_z_max_{5.0};
+  double grid_map_size_m_{40.0};
+  double grid_map_resolution_{0.1};
+  double grid_inflate_radius_{0.20};
+  double occupancy_publish_freq_{-1.0};
   double self_obstacle_clear_radius_{0.45};
   int cloud_tf_fallback_max_age_ms_{500};
+  bool if_test_pct_path_update_{true};
+  double if_test_pct_path_update_tolerance_{0.01};
   int replan_failure_cooldown_ms_{500};
   int max_consecutive_failures_before_cooldown_{3};
 
@@ -811,7 +874,6 @@ private:
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_local_path_;
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr pub_occupancy_map_;
 
-  rclcpp::TimerBase::SharedPtr global_timer_;
   rclcpp::TimerBase::SharedPtr replan_timer_;
 
   // Latest inputs
@@ -837,6 +899,8 @@ private:
   std::optional<std::vector<dog_ego_planner::Obstacle2D>> last_plan_obstacles_;
   int consecutive_plan_failures_{0};
   std::chrono::steady_clock::time_point replan_cooldown_until_{
+    std::chrono::steady_clock::time_point::min()};
+  std::chrono::steady_clock::time_point last_occupancy_publish_time_{
     std::chrono::steady_clock::time_point::min()};
 
   dog_ego_planner::PlannerInterfaceDog planner_;

@@ -2,12 +2,17 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
   ros__parameters: # ROS2 参数命名空间
     # =============== 基础运行开关 ===============
     debug: true # 是否开启调试模式（true 会输出更多调试信息）
+    use_sim_time: true # 是否使用仿真时间（true=仿真/回放，false=系统时钟；所有节点需保持一致，否则会出现TF_OLD_DATA）
+
+    # =============== 全局路径去重 ===============
+    if_test_pct_path_update: true # 是否检测本次pct_path与上次是否相同；true=相同则跳过，false=每次都处理
+    if_test_pct_path_update_tolerance: 0.01 # 判定两条路径"相同"的逐点距离容差（米）
 
     # =============== 重规划触发阈值 ===============
     goal_threshold: 0.1 # 到达目标点判定阈值（单位：米）
     pose_change_thresh: 0.05 # 位姿变化触发重规划阈值（单位：米）
     obs_change_thresh: 0.1 # 障碍变化触发重规划阈值（单位：米）
-    replan_freq: 50.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
+    replan_freq: 5.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
 
     # =============== 轨迹与几何参数 ===============
     planning_horizon: 7.0 # 局部规划前视距离（单位：米）
@@ -23,10 +28,16 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     printfOpenOrNot: false # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
     max_rebound_retries: 2 # 反弹优化被取消时的最大重试次数（现场止血建议 1~2，避免单次重规划卡很久）
 
+    # =============== 栅格地图参数 ===============
+    grid_map_size_m: 20.0 # 栅格地图边长（米）；以机器人为中心的正方形，原来200m太大导致400万格拖慢全局
+    grid_map_resolution: 0.1 # 栅格分辨率（米/格）；40m/0.1=400格 → 16万格（比原来400万格快25倍）
+    grid_inflate_radius: 0.20 # 障碍物膨胀半径（米）
+    occupancy_publish_freq: -1.0 # OccupancyGrid发布频率（Hz）；-1表示跟随障碍更新频率（即每次更新都发布），设为2.0则最多2Hz
+
     # =============== 点云TF转换与防呆过滤（统一到head_init） ===============
     cloud_tf_timeout_ms: 100 # 点云TF查找超时时间（单位：毫秒），超时后尝试使用最近一次有效变换
-    cloud_valid_x_abs_max: 200.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
-    cloud_valid_y_abs_max: 200.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
+    cloud_valid_x_abs_max: 20.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
+    cloud_valid_y_abs_max: 20.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
     cloud_valid_z_min: 0.1 # 点云转换到head_init后，z轴有效最小值（单位：米）
     cloud_valid_z_max: 2.0 # 点云转换到head_init后，z轴有效最大值（单位：米）
     self_obstacle_clear_radius: 0.45 # 规划输入中剔除机器人自身附近障碍半径（米），避免起点被自体/近场噪声占据
