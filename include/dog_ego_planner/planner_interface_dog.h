@@ -41,6 +41,7 @@ public:
   void initParam(double max_vel, double max_acc, double max_jerk);
   void initGridMap(double x_size, double y_size, double resolution, const Eigen::Vector2d& origin,
                    double inflate_radius);
+  void setPrintfOpenOrNot(bool enabled);
 
   void setCurrentPose(const PathPoint2D& cur_pose);
   void setReferencePath(const std::vector<PathPoint2D>& path_pts);   // curve1 dense points
@@ -69,6 +70,7 @@ private:
   ego_planner::LocalTrajData local_data_;
   std::shared_ptr<GridMap2D> grid_map_;
   ego_planner::BsplineOptimizer::Ptr optimizer_;
+  bool printf_open_or_not_{true};
 
   PathPoint2D cur_pose_{};
   std::vector<PathPoint2D> ref_path_{};

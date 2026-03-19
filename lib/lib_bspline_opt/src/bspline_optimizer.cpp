@@ -1,5 +1,6 @@
 #include "bspline_opt/bspline_optimizer.h"
 #include "bspline_opt/gradient_descent_optimizer.h"
+#include <chrono>
 
 namespace ego_planner
 {
@@ -25,6 +26,11 @@ void BsplineOptimizer::setParam()
 void BsplineOptimizer::setEnvironment(const shared_ptr<GridMap2D> &env)
 {
   this->grid_map_ = env;
+}
+
+void BsplineOptimizer::setPrintfOpenOrNot(bool enabled)
+{
+  printf_open_or_not_ = enabled;
 }
 
 void BsplineOptimizer::setControlPoints(const Eigen::MatrixXd &points)
@@ -951,6 +957,7 @@ bool BsplineOptimizer::rebound_optimize()
     lbfgs_params.max_iterations = 200;
     lbfgs_params.g_epsilon = 0.001;
 
+    // 调用 LBFGS 执行反弹优化：使用 Rebound 代价函数，并通过 earlyExit 支持提前终止。
     int result = lbfgs::lbfgs_optimize(variable_num_, q, &final_cost, BsplineOptimizer::costFunctionRebound, NULL, BsplineOptimizer::earlyExit, this, &lbfgs_params);
     std::cout << "result =" << result << std::endl;
 
@@ -1086,6 +1093,7 @@ void BsplineOptimizer::combineCostRebound(const double *x, double *grad, double 
   Eigen::MatrixXd g_turn = Eigen::MatrixXd::Zero(2, cps_.size);
   Eigen::MatrixXd g_kappa = Eigen::MatrixXd::Zero(2, cps_.size);
 
+  // 分别计算平滑代价、避障距离代价、动力学可行性代价及其对应梯度，用于后续加权组合优化。
   calcSmoothnessCost(cps_.points, f_smoothness, g_smoothness);
   calcDistanceCostRebound(cps_.points, f_distance, g_distance, iter_num_, f_smoothness);
   calcFeasibilityCost(cps_.points, f_feasibility, g_feasibility);
@@ -1093,8 +1101,27 @@ void BsplineOptimizer::combineCostRebound(const double *x, double *grad, double 
   // calTurnCost(cps_.points,f_turn,g_turn);
   // calKappaCost(cps_.points,f_kappa,g_kappa);
 
-  printf(" lambda1_ * f_smoothness  %f,  new_lambda2_ * f_distance = %f lambda3_ * f_feasibility = %f \n",lambda1_ * f_smoothness,new_lambda2_ * f_distance,lambda3_ * f_feasibility);
+  //printf("平滑项代价(lambda1 * f_smoothness): %f，  "
+    //     "距离项代价(new_lambda2 * f_distance): %f，  "
+      //   "可行性项代价(lambda3 * f_feasibility): %f\n",
+        // lambda1_ * f_smoothness, new_lambda2_ * f_distance, lambda3_ * f_feasibility);
+  //if (printf_open_or_not_) {
+  if (0) {
+    static bool has_last_print_tp = false;
+    static std::chrono::steady_clock::time_point last_print_tp;
+    const auto now_tp = std::chrono::steady_clock::now(); // 功能：记录本次打印的当前时刻；单位：时间点(time_point，本身无固定数值单位)
+    double refresh_hz = 0.0;
+    if (has_last_print_tp) {
+      const double dt_sec = std::chrono::duration<double>(now_tp - last_print_tp).count(); // 功能：计算与上次打印的时间间隔；单位：秒(s)
+      refresh_hz = (dt_sec > 1e-6) ? (1.0 / dt_sec) : 0.0;
+    } else {
+      has_last_print_tp = true;
+    }
+    last_print_tp = now_tp;
 
+    printf("平滑项代价: %.6f, 距离项代价: %.6f, 可行性项代价: %.6f, 刷新率: %.2f Hz\n",
+           lambda1_ * f_smoothness, new_lambda2_ * f_distance, lambda3_ * f_feasibility, refresh_hz);
+  }
 
   /* 组合代价和梯度 */
   f_combine = lambda1_ * f_smoothness + new_lambda2_ * f_distance + lambda3_ * f_feasibility;// +  f_kappa;

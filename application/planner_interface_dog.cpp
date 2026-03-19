@@ -33,9 +33,18 @@ void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resol
 
   optimizer_.reset(new ego_planner::BsplineOptimizer);
   optimizer_->setParam();
+  optimizer_->setPrintfOpenOrNot(printf_open_or_not_);
   optimizer_->setEnvironment(grid_map_);
   optimizer_->a_star_.reset(new AStar);
   optimizer_->a_star_->initGridMap(grid_map_, Eigen::Vector2i(100, 100));
+}
+
+void PlannerInterfaceDog::setPrintfOpenOrNot(bool enabled)
+{
+  printf_open_or_not_ = enabled;
+  if (optimizer_) {
+    optimizer_->setPrintfOpenOrNot(enabled);
+  }
 }
 
 void PlannerInterfaceDog::setCurrentPose(const PathPoint2D& cur_pose)

@@ -127,6 +127,7 @@ public:
     max_vel_ = declare_parameter<double>("max_vel", 1.0);
     max_acc_ = declare_parameter<double>("max_acc", 2.0);
     max_jerk_ = declare_parameter<double>("max_jerk", 5.0);
+    printf_open_or_not_ = declare_parameter<bool>("printfOpenOrNot", true);
 
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       "/odometry", rclcpp::QoS(10),
@@ -149,6 +150,7 @@ public:
     planner_.initGridMap(
       200.0, 200.0, 0.1, Eigen::Vector2d(-100.0, -100.0),
       0.20 /*inflate_radius*/);
+    planner_.setPrintfOpenOrNot(printf_open_or_not_);
 
     global_timer_ = create_wall_timer(std::chrono::milliseconds(200), [this] { updateGlobalUnfinished(); });
 
@@ -464,6 +466,7 @@ private:
     return (c2 - c1).norm() > obs_change_thresh_;
   }
 
+  // 定时器回调：判断重规划触发条件，并执行一次局部重规划。
   void replanTick()
   {
     if (planning_finished_) return;
@@ -547,6 +550,7 @@ private:
   double max_vel_{1.0};
   double max_acc_{2.0};
   double max_jerk_{5.0};
+  bool printf_open_or_not_{true};
 
   // Subs & pubs
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
