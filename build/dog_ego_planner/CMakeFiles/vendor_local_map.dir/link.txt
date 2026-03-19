@@ -1,2 +1,0 @@
-/usr/bin/ar qc libvendor_local_map.a CMakeFiles/vendor_local_map.dir/vendor/GridMap2D/src/grid_map.cpp.o
-/usr/bin/ranlib libvendor_local_map.a
