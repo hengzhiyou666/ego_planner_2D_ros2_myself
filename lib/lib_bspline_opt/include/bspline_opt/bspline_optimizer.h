@@ -56,6 +56,7 @@ namespace ego_planner
     void setEnvironment(const shared_ptr<GridMap2D> &env);
     void setParam();
     void setPrintfOpenOrNot(bool enabled);
+    void setMaxReboundRetries(int max_retries);
     Eigen::MatrixXd BsplineOptimizeTraj(const Eigen::MatrixXd &points, const double &ts,
                                         const int &cost_function, int max_num_id, int max_time_id);
 
@@ -119,6 +120,7 @@ namespace ego_planner
     double lambda4_;               // curve fitting
     double lambda5_;               // curve kappa
     bool printf_open_or_not_{true};
+    int max_rebound_retries_{5};
 
 
     int a;

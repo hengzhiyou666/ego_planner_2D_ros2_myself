@@ -33,6 +33,11 @@ void BsplineOptimizer::setPrintfOpenOrNot(bool enabled)
   printf_open_or_not_ = enabled;
 }
 
+void BsplineOptimizer::setMaxReboundRetries(int max_retries)
+{
+  max_rebound_retries_ = (max_retries < 0) ? 0 : max_retries;
+}
+
 void BsplineOptimizer::setControlPoints(const Eigen::MatrixXd &points)
 {
   cps_.points = points;
@@ -875,7 +880,7 @@ bool BsplineOptimizer::check_collision_and_rebound(void)
             }
         }
         else
-          printf("Failed to generate direction. It doesn't matter.");
+          printf("[Rebound] Failed to generate direction; continue with fallback strategy.\n");
       }
 
       force_stop_type_ = STOP_FOR_REBOUND;
@@ -938,6 +943,7 @@ bool BsplineOptimizer::rebound_optimize()
   bool flag_force_return, flag_occ, success;
   new_lambda2_ = lambda2_;
   constexpr int MAX_RESART_NUMS_SET = 3;
+  const int max_rebound_times = (max_rebound_retries_ < 0) ? 0 : max_rebound_retries_;  // 防止单次重规划在反弹阶段长时间重试导致CPU飙高
   std::cout << "start optimze" << std::endl;
 
   do
@@ -959,7 +965,11 @@ bool BsplineOptimizer::rebound_optimize()
 
     // 调用 LBFGS 执行反弹优化：使用 Rebound 代价函数，并通过 earlyExit 支持提前终止。
     int result = lbfgs::lbfgs_optimize(variable_num_, q, &final_cost, BsplineOptimizer::costFunctionRebound, NULL, BsplineOptimizer::earlyExit, this, &lbfgs_params);
-    std::cout << "result =" << result << std::endl;
+    if (result == lbfgs::LBFGS_CONVERGENCE) {
+      std::cout << "[LBFGS] 收敛成功(result=0)" << std::endl;
+    } else {
+      std::cout << "[LBFGS] result=" << result << ", reason=" << lbfgs::lbfgs_strerror(result) << std::endl;
+    }
 
     if (result == lbfgs::LBFGS_CONVERGENCE ||
         result == lbfgs::LBFGSERR_MAXIMUMITERATION ||
@@ -1007,7 +1017,11 @@ bool BsplineOptimizer::rebound_optimize()
     {
       flag_force_return = true;
       rebound_times++;
-      std::cout << "iter=" << iter_num_ << ",rebound." << std::endl;
+      std::cout << "iter=" << iter_num_ << ", rebound retry=" << rebound_times << "/" << max_rebound_times << std::endl;
+      if (rebound_times >= max_rebound_times) {
+        std::cout << "[Rebound] 达到最大重试次数，提前退出本次重规划。" << std::endl;
+        flag_force_return = false;
+      }
     }
     else
     {
@@ -1015,7 +1029,7 @@ bool BsplineOptimizer::rebound_optimize()
     }
 
   } while ((flag_occ && restart_nums < MAX_RESART_NUMS_SET) ||
-           (flag_force_return && force_stop_type_ == STOP_FOR_REBOUND && rebound_times <= 20));
+           (flag_force_return && force_stop_type_ == STOP_FOR_REBOUND && rebound_times < max_rebound_times));
   
   std::cout << "optimuze complete" << std::endl;
   return success;

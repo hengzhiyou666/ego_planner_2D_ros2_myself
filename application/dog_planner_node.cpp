@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <optional>
 #include <unordered_set>
 #include <vector>
@@ -128,6 +129,7 @@ public:
     max_acc_ = declare_parameter<double>("max_acc", 2.0);
     max_jerk_ = declare_parameter<double>("max_jerk", 5.0);
     printf_open_or_not_ = declare_parameter<bool>("printfOpenOrNot", true);
+    max_rebound_retries_ = declare_parameter<int>("max_rebound_retries", 5);
 
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       "/odometry", rclcpp::QoS(10),
@@ -151,6 +153,7 @@ public:
       200.0, 200.0, 0.1, Eigen::Vector2d(-100.0, -100.0),
       0.20 /*inflate_radius*/);
     planner_.setPrintfOpenOrNot(printf_open_or_not_);
+    planner_.setMaxReboundRetries(max_rebound_retries_);
 
     global_timer_ = create_wall_timer(std::chrono::milliseconds(200), [this] { updateGlobalUnfinished(); });
 
@@ -224,6 +227,7 @@ private:
     filtered_cloud_ = out;
     pub_cloud_filtered_->publish(out);
     have_cloud_ = true;
+    planner_obstacles_dirty_ = true;
   }
 
   Eigen::Vector2d currentPoseXY() const
@@ -481,6 +485,14 @@ private:
 
     if (!trigger_by_pose && !trigger_by_obs && !trigger_by_remaining && have_local_plan_) return;
 
+    // 显眼提示：当前定时周期触发并正式进入一次重规划流程。
+    const double replan_period_ms = 1000.0 / std::max(1.0, replan_freq_);
+    std::cout << "================ [重规划开始] 周期=" << static_cast<int>(std::round(replan_period_ms))
+              << "ms | 位姿触发=" << (trigger_by_pose ? "是" : "否")
+              << " 障碍触发=" << (trigger_by_obs ? "是" : "否")
+              << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
+              << " ================" << std::endl;
+
     // Build curve1: 7m horizon from current A along unfinished path.
     Eigen::Vector2d temp_goal = last_global_unfinished_pts_.back();
     const std::vector<Eigen::Vector2d> curve1 = takeHorizonCurve1(last_global_unfinished_pts_, planning_horizon_, temp_goal);
@@ -494,7 +506,11 @@ private:
 
     // Feed planner.
     planner_.setCurrentPose(dog_ego_planner::PathPoint2D{cur.x(), cur.y()});
-    planner_.setObstacles(last_obs2d_);
+    // 仅在点云更新后重建障碍地图，避免位姿触发时重复做重活导致CPU飙高。
+    if (planner_obstacles_dirty_) {
+      planner_.setObstacles(last_obs2d_);
+      planner_obstacles_dirty_ = false;
+    }
     planner_.setReferencePath(ctrl_pts);
 
     const Eigen::Vector2d start_vel = currentVelXY();
@@ -551,6 +567,7 @@ private:
   double max_acc_{2.0};
   double max_jerk_{5.0};
   bool printf_open_or_not_{true};
+  int max_rebound_retries_{5};
 
   // Subs & pubs
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -571,6 +588,7 @@ private:
   bool have_odom_{false};
   bool have_pct_path_{false};
   bool have_cloud_{false};
+  bool planner_obstacles_dirty_{true};
 
   std::vector<dog_ego_planner::Obstacle2D> last_obs2d_;
 

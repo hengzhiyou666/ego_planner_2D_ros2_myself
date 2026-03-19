@@ -87,6 +87,11 @@ vector<GridNodePtr> AStar::retrievePath(GridNodePtr current)
 bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector2d start_pt, Vector2d end_pt, 
                                                   Vector2i &start_idx, Vector2i &end_idx)
 {
+    const Vector2d start_pt_raw = start_pt;
+    const Vector2d end_pt_raw = end_pt;
+    bool adjusted_start = false;
+    bool adjusted_end = false;
+
     // 仅使用x、y坐标转换为二维索引（忽略z轴）
     if (!Coord2Index(start_pt, start_idx) || !Coord2Index(end_pt, end_idx))
         return false;
@@ -99,6 +104,7 @@ bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector2d start_pt, Vector2d en
             // 沿起点到终点方向移动一步（仅x、y）
             Vector2d dir = (end_pt - start_pt).normalized();
             start_pt += dir * step_size_;
+            adjusted_start = true;
             if (!Coord2Index(start_pt, start_idx))
                 return false;
         } while (checkOccupancy(Index2Coord(start_idx)));
@@ -112,12 +118,28 @@ bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector2d start_pt, Vector2d en
             // 沿终点到起点方向移动一步（仅x、y）
             Vector2d dir = (start_pt - end_pt).normalized();
             end_pt += dir * step_size_;
+            adjusted_end = true;
             if (!Coord2Index(end_pt, end_idx))
                 return false;
         } while (checkOccupancy(Index2Coord(end_idx)));
     }
 
-    std::cout << "[ConvertToIndexAndAdjustStartEndPoints] start_pt = " << start_pt << " end_pt =" << end_pt << std::endl;
+    // 分情况打印调整结果，明确“因在障碍物内而被调整”的原因。
+    if (adjusted_start && adjusted_end) {
+        std::cout << "[调整A*起终点] 由于起点和终点在障碍物内，所以调整起点为("
+                  << start_pt.x() << ", " << start_pt.y() << ")，终点为("
+                  << end_pt.x() << ", " << end_pt.y() << ")。原始起点=("
+                  << start_pt_raw.x() << ", " << start_pt_raw.y() << ")，原始终点=("
+                  << end_pt_raw.x() << ", " << end_pt_raw.y() << ")" << std::endl;
+    } else if (adjusted_start) {
+        std::cout << "[调整A*起点] 由于起点在障碍物内，所以调整起点为("
+                  << start_pt.x() << ", " << start_pt.y() << ")。原始起点=("
+                  << start_pt_raw.x() << ", " << start_pt_raw.y() << ")" << std::endl;
+    } else if (adjusted_end) {
+        std::cout << "[调整A*终点] 由于终点在障碍物内，所以调整终点为("
+                  << end_pt.x() << ", " << end_pt.y() << ")。原始终点=("
+                  << end_pt_raw.x() << ", " << end_pt_raw.y() << ")" << std::endl;
+    }
 
     return true;
 }

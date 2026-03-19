@@ -6,9 +6,10 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     obs_change_thresh: 0.1 # 障碍变化触发重规划阈值（单位：米）
     planning_horizon: 7.0 # 局部规划前视距离（单位：米）
     control_point_interval: 0.3 # B-spline 控制点间距（单位：米）
-    replan_freq: 5.0 # 重规划频率（单位：Hz）
+    replan_freq: 1.0 # 重规划频率（单位：Hz）
     local_traj_duration: 1.0 # 单段局部轨迹时长（单位：秒）
     max_vel: 1.0 # 最大速度约束（单位：米/秒）
     max_acc: 2.0 # 最大加速度约束（单位：米/秒^2）
     max_jerk: 5.0 # 最大加加速度约束（单位：米/秒^3）
-    printfOpenOrNot: true # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
+    printfOpenOrNot: false # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
+    max_rebound_retries: 5 # 反弹优化被取消时的最大重试次数（0表示不重试）

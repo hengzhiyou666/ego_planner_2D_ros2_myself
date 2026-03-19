@@ -29,11 +29,13 @@ void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resol
   (void)origin;  // GridMap2D in demo internally defines its origin behavior; keep signature for future.
   Eigen::Vector2i map_size(static_cast<int>(x_size), static_cast<int>(y_size));
   grid_map_ = std::make_shared<GridMap2D>(resolution, map_size);
+  grid_map_->setPrintfOpenOrNot(printf_open_or_not_);
   grid_map_->setInflateRadius(inflate_radius);
 
   optimizer_.reset(new ego_planner::BsplineOptimizer);
   optimizer_->setParam();
   optimizer_->setPrintfOpenOrNot(printf_open_or_not_);
+  optimizer_->setMaxReboundRetries(max_rebound_retries_);
   optimizer_->setEnvironment(grid_map_);
   optimizer_->a_star_.reset(new AStar);
   optimizer_->a_star_->initGridMap(grid_map_, Eigen::Vector2i(100, 100));
@@ -42,8 +44,19 @@ void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resol
 void PlannerInterfaceDog::setPrintfOpenOrNot(bool enabled)
 {
   printf_open_or_not_ = enabled;
+  if (grid_map_) {
+    grid_map_->setPrintfOpenOrNot(enabled);
+  }
   if (optimizer_) {
     optimizer_->setPrintfOpenOrNot(enabled);
+  }
+}
+
+void PlannerInterfaceDog::setMaxReboundRetries(int max_retries)
+{
+  max_rebound_retries_ = (max_retries < 0) ? 0 : max_retries;
+  if (optimizer_) {
+    optimizer_->setMaxReboundRetries(max_rebound_retries_);
   }
 }
 

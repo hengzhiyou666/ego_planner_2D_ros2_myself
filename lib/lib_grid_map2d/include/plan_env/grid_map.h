@@ -22,6 +22,7 @@ private:
     Eigen::Vector2i world_size_;
     int grid_rows_;
     int grid_cols_;
+    bool printf_open_or_not_{true};
     
 
 
@@ -52,9 +53,13 @@ public:
             for (auto& row : grid_) {
                 std::fill(row.begin(), row.end(), false);
             }
-            std::cout << "[resetMap] 所有栅格已重置为自由空间。" << std::endl;
+            if (printf_open_or_not_) {
+                std::cout << "[resetMap] 所有栅格已重置为自由空间。" << std::endl;
+            }
         } else {
-            std::cout << "[resetMap] 警告：地图尚未初始化，无法重置。" << std::endl;
+            if (printf_open_or_not_) {
+                std::cout << "[resetMap] 警告：地图尚未初始化，无法重置。" << std::endl;
+            }
         }
     }
 
@@ -64,6 +69,7 @@ public:
      * @param is_obstacle 是否为障碍物
      */
     void setObstacle(const Eigen::Vector2i& index, bool is_obstacle = true);
+    void setPrintfOpenOrNot(bool enabled);
 
     void inflateObstacles(double radius);
 
