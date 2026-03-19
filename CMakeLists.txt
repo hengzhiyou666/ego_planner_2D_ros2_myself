@@ -25,58 +25,61 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(include)
 
-# Vendorized (copied) demo planner sources: no dependency on src_demo/.
-set(VENDOR_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/vendor")
+# Third-party source libraries are organized under lib/ directory.
+set(LIB_BSPLINE_OPT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/lib_bspline_opt")
+set(LIB_PATH_SEARCHING_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/lib_path_searching")
+set(LIB_GRID_MAP2D_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/lib_grid_map2d")
+set(LIB_PLAN_MANAGE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/lib_plan_manage")
 
-if(NOT EXISTS "${VENDOR_ROOT}/bspline_opt/src/uniform_bspline.cpp")
-  message(FATAL_ERROR "Vendor planner sources not found at: ${VENDOR_ROOT}. Please ensure vendor/ is present in src_new/dog_ego_planner.")
+if(NOT EXISTS "${LIB_BSPLINE_OPT_ROOT}/src/uniform_bspline.cpp")
+  message(FATAL_ERROR "Planner sources not found under lib/ directory. Please ensure lib/lib_bspline_opt exists.")
 endif()
 
-add_library(vendor_local_map STATIC
-  vendor/GridMap2D/src/grid_map.cpp
+add_library(lib_local_map STATIC
+  lib/lib_grid_map2d/src/grid_map.cpp
 )
-target_include_directories(vendor_local_map PUBLIC
-  "${VENDOR_ROOT}/GridMap2D/include"
-  "${VENDOR_ROOT}/GridMap2D/include/plan_env"
+target_include_directories(lib_local_map PUBLIC
+  "${LIB_GRID_MAP2D_ROOT}/include"
+  "${LIB_GRID_MAP2D_ROOT}/include/plan_env"
 )
 
-add_library(vendor_path_searching STATIC
-  vendor/path_searching/src/dyn_a_star.cpp
+add_library(lib_path_searching STATIC
+  lib/lib_path_searching/src/dyn_a_star.cpp
 )
-target_include_directories(vendor_path_searching PUBLIC
-  "${VENDOR_ROOT}/path_searching/include"
-  "${VENDOR_ROOT}/GridMap2D/include"
-  "${VENDOR_ROOT}/GridMap2D/include/plan_env"
+target_include_directories(lib_path_searching PUBLIC
+  "${LIB_PATH_SEARCHING_ROOT}/include"
+  "${LIB_GRID_MAP2D_ROOT}/include"
+  "${LIB_GRID_MAP2D_ROOT}/include/plan_env"
 )
-target_link_libraries(vendor_path_searching PUBLIC vendor_local_map)
+target_link_libraries(lib_path_searching PUBLIC lib_local_map)
 
-add_library(vendor_bspline_opt STATIC
-  vendor/bspline_opt/src/uniform_bspline.cpp
-  vendor/bspline_opt/src/bspline_optimizer.cpp
-  vendor/bspline_opt/src/gradient_descent_optimizer.cpp
+add_library(lib_bspline_opt STATIC
+  lib/lib_bspline_opt/src/uniform_bspline.cpp
+  lib/lib_bspline_opt/src/bspline_optimizer.cpp
+  lib/lib_bspline_opt/src/gradient_descent_optimizer.cpp
 )
-target_include_directories(vendor_bspline_opt PUBLIC
-  "${VENDOR_ROOT}/bspline_opt/include"
-  "${VENDOR_ROOT}/path_searching/include"
-  "${VENDOR_ROOT}/GridMap2D/include"
-  "${VENDOR_ROOT}/GridMap2D/include/plan_env"
+target_include_directories(lib_bspline_opt PUBLIC
+  "${LIB_BSPLINE_OPT_ROOT}/include"
+  "${LIB_PATH_SEARCHING_ROOT}/include"
+  "${LIB_GRID_MAP2D_ROOT}/include"
+  "${LIB_GRID_MAP2D_ROOT}/include/plan_env"
 )
-target_link_libraries(vendor_bspline_opt PUBLIC vendor_path_searching vendor_local_map)
+target_link_libraries(lib_bspline_opt PUBLIC lib_path_searching lib_local_map)
 
-include_directories("${VENDOR_ROOT}/plan_manage/include")
-include_directories("${VENDOR_ROOT}/plan_manage/include/plan_manage")
+include_directories("${LIB_PLAN_MANAGE_ROOT}/include")
+include_directories("${LIB_PLAN_MANAGE_ROOT}/include/plan_manage")
 
 add_library(dog_ego_core STATIC
-  src/planner_interface_dog.cpp
+  application/planner_interface_dog.cpp
 )
 target_link_libraries(dog_ego_core
-  vendor_bspline_opt
-  vendor_path_searching
-  vendor_local_map
+  lib_bspline_opt
+  lib_path_searching
+  lib_local_map
 )
 
 add_executable(dog_planner_node
-  src/dog_planner_node.cpp
+  application/dog_planner_node.cpp
 )
 ament_target_dependencies(dog_planner_node
   rclcpp
@@ -90,9 +93,9 @@ ament_target_dependencies(dog_planner_node
 
 target_link_libraries(dog_planner_node
   dog_ego_core
-  vendor_bspline_opt
-  vendor_path_searching
-  vendor_local_map
+  lib_bspline_opt
+  lib_path_searching
+  lib_local_map
 )
 
 install(TARGETS
@@ -102,13 +105,14 @@ install(TARGETS
 
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Install RViz config with preserved path (avoid installing duplicate launch file).
+# Install RViz config.
 install(DIRECTORY
-  planner/plan_manage/rviz
-  DESTINATION share/${PROJECT_NAME}/planner/plan_manage
+  rviz
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()

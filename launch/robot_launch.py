@@ -8,18 +8,13 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     debug = LaunchConfiguration("debug")
-
-    goal_threshold = LaunchConfiguration("goal_threshold")
-    pose_change_thresh = LaunchConfiguration("pose_change_thresh")
-    obs_change_thresh = LaunchConfiguration("obs_change_thresh")
-
-    planning_horizon = LaunchConfiguration("planning_horizon")
-    control_point_interval = LaunchConfiguration("control_point_interval")
-    replan_freq = LaunchConfiguration("replan_freq")
-    local_traj_duration = LaunchConfiguration("local_traj_duration")
+    params_file = LaunchConfiguration("params_file")
 
     rviz_config = PathJoinSubstitution(
-        [FindPackageShare("dog_ego_planner"), "planner", "plan_manage", "rviz", "dog_debug.rviz"]
+        [FindPackageShare("dog_ego_planner"), "rviz", "dog_debug.rviz"]
+    )
+    default_params_file = PathJoinSubstitution(
+        [FindPackageShare("dog_ego_planner"), "config", "planner_params.yaml"]
     )
 
     dog_node = Node(
@@ -28,14 +23,8 @@ def generate_launch_description():
         name="dog_ego_planner",
         output="screen",
         parameters=[
+            params_file,
             {"debug": debug},
-            {"goal_threshold": goal_threshold},
-            {"pose_change_thresh": pose_change_thresh},
-            {"obs_change_thresh": obs_change_thresh},
-            {"planning_horizon": planning_horizon},
-            {"control_point_interval": control_point_interval},
-            {"replan_freq": replan_freq},
-            {"local_traj_duration": local_traj_duration},
         ],
     )
 
@@ -51,13 +40,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("debug", default_value="true"),
-            DeclareLaunchArgument("goal_threshold", default_value="0.1"),
-            DeclareLaunchArgument("pose_change_thresh", default_value="0.05"),
-            DeclareLaunchArgument("obs_change_thresh", default_value="0.1"),
-            DeclareLaunchArgument("planning_horizon", default_value="7.0"),
-            DeclareLaunchArgument("control_point_interval", default_value="0.3"),
-            DeclareLaunchArgument("replan_freq", default_value="50.0"),
-            DeclareLaunchArgument("local_traj_duration", default_value="1.0"),
+            DeclareLaunchArgument("params_file", default_value=default_params_file),
             dog_node,
             rviz_node,
         ]
