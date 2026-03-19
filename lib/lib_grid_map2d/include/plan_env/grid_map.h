@@ -6,6 +6,7 @@
 #define GRID_MAP_2D_H
 
 #include <vector>
+#include <cstdint>
 #include <Eigen/Dense>
 #include <memory>
 #include <iostream>
@@ -115,6 +116,7 @@ public:
      * @return std::vector<Eigen::Vector2d> 包含所有障碍物中心点的世界坐标列表
      */
     std::vector<Eigen::Vector2d> getObstaclePointCloud(bool return_inflated_map = true) const;
+    void getOccupancyGridData(std::vector<int8_t>& data, bool return_inflated_map = true) const;
 
     // Getter
     double resolution() const;

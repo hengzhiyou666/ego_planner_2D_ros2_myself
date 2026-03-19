@@ -88,6 +88,19 @@ void PlannerInterfaceDog::setObstacles(const std::vector<Obstacle2D>& obstacles)
   grid_map_->inflate();
 }
 
+bool PlannerInterfaceDog::getInflatedOccupancyGrid(std::vector<int8_t>& data, int& width, int& height,
+                                                   double& resolution, Eigen::Vector2d& origin) const
+{
+  if (!grid_map_) return false;
+  const Eigen::Vector2i size = grid_map_->mapSize();
+  width = size.x();
+  height = size.y();
+  resolution = grid_map_->resolution();
+  origin = grid_map_->origin();
+  grid_map_->getOccupancyGridData(data, true);
+  return (width > 0 && height > 0 && data.size() == static_cast<size_t>(width * height));
+}
+
 bool PlannerInterfaceDog::makePlan(const Eigen::Vector2d& start_vel_2d,
                                    const Eigen::Vector2d& start_acc_2d,
                                    const Eigen::Vector2d& local_target_vel_2d)

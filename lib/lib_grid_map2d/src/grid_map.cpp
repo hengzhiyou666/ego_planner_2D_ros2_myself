@@ -140,6 +140,21 @@ std::vector<Eigen::Vector2d> GridMap2D::getObstaclePointCloud(bool return_inflat
     return point_cloud;
 }
 
+void GridMap2D::getOccupancyGridData(std::vector<int8_t>& data, bool return_inflated_map) const {
+    data.clear();
+    if (map_size_.x() <= 0 || map_size_.y() <= 0) return;
+    data.resize(static_cast<size_t>(map_size_.x() * map_size_.y()), 0);
+
+    // OccupancyGrid uses row-major indexing: index = row * width + col.
+    for (int row = 0; row < map_size_.y(); ++row) {
+        for (int col = 0; col < map_size_.x(); ++col) {
+            const bool occupied = return_inflated_map ? grid_[row][col] : original_grid_[row][col];
+            // RViz 当前显示黑白反相，按现网需求将编码对调：占用=0，空闲=100。
+            data[static_cast<size_t>(row * map_size_.x() + col)] = occupied ? 0 : 100;
+        }
+    }
+}
+
 // 新增接口：检查点是否处于【膨胀后的障碍物区域】（原始障碍物+膨胀区）
 bool GridMap2D::getInflateOccupancy(const Eigen::Vector2d& world_pos) const {
     // 1. 世界坐标→栅格索引

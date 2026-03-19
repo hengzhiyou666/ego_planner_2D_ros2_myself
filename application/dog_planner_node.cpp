@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
@@ -146,6 +147,7 @@ public:
     pub_cloud_filtered_ = create_publisher<sensor_msgs::msg::PointCloud2>("/lidar_points_filtered", 10);
     pub_global_unfinished_ = create_publisher<nav_msgs::msg::Path>("/dog_output_global_path_unfinished", 10);
     pub_local_path_ = create_publisher<nav_msgs::msg::Path>("/dog_output_local_path", 10);
+    pub_occupancy_map_ = create_publisher<nav_msgs::msg::OccupancyGrid>("/dog_2Dmap_occupancy", 1);
 
     // Init planner core
     planner_.initParam(max_vel_, max_acc_, max_jerk_);
@@ -435,6 +437,28 @@ private:
     return L;
   }
 
+  void publishOccupancyMap()
+  {
+    std::vector<int8_t> data;
+    int width = 0, height = 0;
+    double resolution = 0.0;
+    Eigen::Vector2d origin = Eigen::Vector2d::Zero();
+    if (!planner_.getInflatedOccupancyGrid(data, width, height, resolution, origin)) return;
+
+    nav_msgs::msg::OccupancyGrid map_msg;
+    map_msg.header.stamp = now();
+    map_msg.header.frame_id = kFrameId;
+    map_msg.info.resolution = static_cast<float>(resolution);
+    map_msg.info.width = static_cast<uint32_t>(width);
+    map_msg.info.height = static_cast<uint32_t>(height);
+    map_msg.info.origin.position.x = origin.x();
+    map_msg.info.origin.position.y = origin.y();
+    map_msg.info.origin.position.z = 0.0;
+    map_msg.info.origin.orientation.w = 1.0;
+    map_msg.data = std::move(data);
+    pub_occupancy_map_->publish(map_msg);
+  }
+
   bool poseChanged() const
   {
     if (!last_plan_pose_) return true;
@@ -487,7 +511,8 @@ private:
 
     // 显眼提示：当前定时周期触发并正式进入一次重规划流程。
     const double replan_period_ms = 1000.0 / std::max(1.0, replan_freq_);
-    std::cout << "================ [重规划开始] 周期=" << static_cast<int>(std::round(replan_period_ms))
+    ++replan_count_;
+    std::cout << "================ [重规划开始#" << replan_count_ << "] 周期=" << static_cast<int>(std::round(replan_period_ms))
               << "ms | 位姿触发=" << (trigger_by_pose ? "是" : "否")
               << " 障碍触发=" << (trigger_by_obs ? "是" : "否")
               << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
@@ -509,6 +534,7 @@ private:
     // 仅在点云更新后重建障碍地图，避免位姿触发时重复做重活导致CPU飙高。
     if (planner_obstacles_dirty_) {
       planner_.setObstacles(last_obs2d_);
+      publishOccupancyMap();
       planner_obstacles_dirty_ = false;
     }
     planner_.setReferencePath(ctrl_pts);
@@ -576,6 +602,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_cloud_filtered_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_unfinished_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_local_path_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr pub_occupancy_map_;
 
   rclcpp::TimerBase::SharedPtr global_timer_;
   rclcpp::TimerBase::SharedPtr replan_timer_;
@@ -595,6 +622,7 @@ private:
   // State
   bool planning_finished_{false};
   bool have_local_plan_{false};
+  uint64_t replan_count_{0};
   std::vector<Eigen::Vector2d> last_global_unfinished_pts_;
   std::vector<Eigen::Vector2d> last_local_path_pts_;
   std::optional<Eigen::Vector2d> last_plan_pose_;

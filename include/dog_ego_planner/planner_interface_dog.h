@@ -47,6 +47,8 @@ public:
   void setCurrentPose(const PathPoint2D& cur_pose);
   void setReferencePath(const std::vector<PathPoint2D>& path_pts);   // curve1 dense points
   void setObstacles(const std::vector<Obstacle2D>& obstacles);       // 2D obstacle points
+  bool getInflatedOccupancyGrid(std::vector<int8_t>& data, int& width, int& height,
+                                double& resolution, Eigen::Vector2d& origin) const;
 
   bool makePlan(const Eigen::Vector2d& start_vel, const Eigen::Vector2d& start_acc,
                 const Eigen::Vector2d& local_target_vel);
