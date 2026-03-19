@@ -1,20 +1,37 @@
 dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
   ros__parameters: # ROS2 参数命名空间
+    # =============== 基础运行开关 ===============
     debug: true # 是否开启调试模式（true 会输出更多调试信息）
+
+    # =============== 重规划触发阈值 ===============
     goal_threshold: 0.1 # 到达目标点判定阈值（单位：米）
     pose_change_thresh: 0.05 # 位姿变化触发重规划阈值（单位：米）
     obs_change_thresh: 0.1 # 障碍变化触发重规划阈值（单位：米）
+    replan_freq: 50.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
+
+    # =============== 轨迹与几何参数 ===============
     planning_horizon: 7.0 # 局部规划前视距离（单位：米）
-    control_point_interval: 0.3 # B-spline 控制点间距（单位：米）
-    replan_freq: 1.0 # 重规划频率（单位：Hz）
-    local_traj_duration: 1.0 # 单段局部轨迹时长（单位：秒）
+    control_point_interval: 0.3 # 控制点间距（当前版本仅保留参数，尚未在dog_planner_node中实际使用）
+    local_traj_duration: 1.0 # 单段局部轨迹时长（当前版本仅保留参数，尚未在dog_planner_node中实际使用）
+
+    # =============== 运动学约束 ===============
     max_vel: 1.0 # 最大速度约束（单位：米/秒）
     max_acc: 2.0 # 最大加速度约束（单位：米/秒^2）
     max_jerk: 5.0 # 最大加加速度约束（单位：米/秒^3）
+
+    # =============== 优化器日志与重试控制 ===============
     printfOpenOrNot: false # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
-    max_rebound_retries: 5 # 反弹优化被取消时的最大重试次数（0表示不重试）
-    cloud_tf_timeout_ms: 100 # 点云坐标TF查找超时时间（单位：毫秒），超时后尝试使用最近一次有效变换
+    max_rebound_retries: 2 # 反弹优化被取消时的最大重试次数（现场止血建议 1~2，避免单次重规划卡很久）
+
+    # =============== 点云TF转换与防呆过滤（统一到head_init） ===============
+    cloud_tf_timeout_ms: 100 # 点云TF查找超时时间（单位：毫秒），超时后尝试使用最近一次有效变换
     cloud_valid_x_abs_max: 200.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
     cloud_valid_y_abs_max: 200.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
-    cloud_valid_z_min: -3.0 # 点云转换到head_init后，z轴有效最小值（单位：米）
-    cloud_valid_z_max: 5.0 # 点云转换到head_init后，z轴有效最大值（单位：米）
+    cloud_valid_z_min: 0.1 # 点云转换到head_init后，z轴有效最小值（单位：米）
+    cloud_valid_z_max: 2.0 # 点云转换到head_init后，z轴有效最大值（单位：米）
+    self_obstacle_clear_radius: 0.45 # 规划输入中剔除机器人自身附近障碍半径（米），避免起点被自体/近场噪声占据
+    cloud_tf_fallback_max_age_ms: 100 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
+
+    # =============== 失败退避（防重规划风暴） ===============
+    max_consecutive_failures_before_cooldown: 3 # 连续规划失败达到该次数后，进入冷却
+    replan_failure_cooldown_ms: 500 # 冷却时长（毫秒），冷却期内跳过重规划

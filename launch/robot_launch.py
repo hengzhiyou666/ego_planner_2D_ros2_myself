@@ -9,6 +9,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     debug = LaunchConfiguration("debug")
     params_file = LaunchConfiguration("params_file")
+    use_sim_time = LaunchConfiguration("use_sim_time")
 
     rviz_config = PathJoinSubstitution(
         [FindPackageShare("dog_ego_planner"), "rviz", "dog_debug.rviz"]
@@ -25,6 +26,7 @@ def generate_launch_description():
         parameters=[
             params_file,
             {"debug": debug},
+            {"use_sim_time": use_sim_time},
         ],
     )
 
@@ -34,6 +36,7 @@ def generate_launch_description():
         name="rviz2_dog_debug",
         output="screen",
         arguments=["-d", rviz_config],
+        parameters=[{"use_sim_time": use_sim_time}],
         condition=IfCondition(debug),
     )
 
@@ -41,6 +44,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("debug", default_value="true"),
             DeclareLaunchArgument("params_file", default_value=default_params_file),
+            DeclareLaunchArgument("use_sim_time", default_value="false"),
             dog_node,
             rviz_node,
         ]

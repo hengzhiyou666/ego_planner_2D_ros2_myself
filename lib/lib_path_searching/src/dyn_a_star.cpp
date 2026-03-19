@@ -96,32 +96,54 @@ bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector2d start_pt, Vector2d en
     if (!Coord2Index(start_pt, start_idx) || !Coord2Index(end_pt, end_idx))
         return false;
 
+    // 使用原始连续坐标判占用（而不是回投到栅格中心），避免“看起来不在障碍但被判在障碍”。
+    // 同时限制最大调整步数，防止异常地图下长时间循环卡住。
+    constexpr int kMaxAdjustSteps = 200;
+
     // 检查起点是否在障碍物内，若在则向终点方向调整（仅x、y方向）
-    if (checkOccupancy(Index2Coord(start_idx)))
+    if (checkOccupancy(start_pt))
     {
-        do
+        const Vector2d delta = end_pt - start_pt;
+        if (delta.norm() < 1e-6) {
+            std::cout << "[调整A*起点] 起终点过近，无法生成有效调整方向，直接返回失败。" << std::endl;
+            return false;
+        }
+        Vector2d dir = delta.normalized();
+        int adjust_steps = 0;
+        while (checkOccupancy(start_pt))
         {
-            // 沿起点到终点方向移动一步（仅x、y）
-            Vector2d dir = (end_pt - start_pt).normalized();
             start_pt += dir * step_size_;
             adjusted_start = true;
             if (!Coord2Index(start_pt, start_idx))
                 return false;
-        } while (checkOccupancy(Index2Coord(start_idx)));
+            if (++adjust_steps >= kMaxAdjustSteps) {
+                std::cout << "[调整A*起点] 超过最大调整步数(" << kMaxAdjustSteps << ")，放弃本次搜索。" << std::endl;
+                return false;
+            }
+        }
     }
 
     // 检查终点是否在障碍物内，若在则向起点方向调整（仅x、y方向）
-    if (checkOccupancy(Index2Coord(end_idx)))
+    if (checkOccupancy(end_pt))
     {
-        do
+        const Vector2d delta = start_pt - end_pt;
+        if (delta.norm() < 1e-6) {
+            std::cout << "[调整A*终点] 起终点过近，无法生成有效调整方向，直接返回失败。" << std::endl;
+            return false;
+        }
+        Vector2d dir = delta.normalized();
+        int adjust_steps = 0;
+        while (checkOccupancy(end_pt))
         {
-            // 沿终点到起点方向移动一步（仅x、y）
-            Vector2d dir = (start_pt - end_pt).normalized();
             end_pt += dir * step_size_;
             adjusted_end = true;
             if (!Coord2Index(end_pt, end_idx))
                 return false;
-        } while (checkOccupancy(Index2Coord(end_idx)));
+            if (++adjust_steps >= kMaxAdjustSteps) {
+                std::cout << "[调整A*终点] 超过最大调整步数(" << kMaxAdjustSteps << ")，放弃本次搜索。" << std::endl;
+                return false;
+            }
+        }
     }
 
     // 分情况打印调整结果，明确“因在障碍物内而被调整”的原因。

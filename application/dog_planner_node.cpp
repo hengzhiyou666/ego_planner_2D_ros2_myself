@@ -18,6 +18,7 @@
 #include <cstring>
 #include <iostream>
 #include <optional>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -141,6 +142,11 @@ public:
     cloud_valid_y_abs_max_ = declare_parameter<double>("cloud_valid_y_abs_max", 200.0);
     cloud_valid_z_min_ = declare_parameter<double>("cloud_valid_z_min", -3.0);
     cloud_valid_z_max_ = declare_parameter<double>("cloud_valid_z_max", 5.0);
+    self_obstacle_clear_radius_ = declare_parameter<double>("self_obstacle_clear_radius", 0.45);
+    cloud_tf_fallback_max_age_ms_ = declare_parameter<int>("cloud_tf_fallback_max_age_ms", 500);
+    replan_failure_cooldown_ms_ = declare_parameter<int>("replan_failure_cooldown_ms", 500);
+    max_consecutive_failures_before_cooldown_ =
+      declare_parameter<int>("max_consecutive_failures_before_cooldown", 3);
 
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       "/odometry", rclcpp::QoS(10),
@@ -150,9 +156,10 @@ public:
       "/pct_path", rclcpp::QoS(10),
       [this](nav_msgs::msg::Path::SharedPtr msg) { onPctPath(*msg); });
 
+    // 订阅激光点云话题：队列深度为 10，收到每帧点云后交给 autofunction_dealwith_lidar_points 进行预处理与建图更新。
     cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       "/lidar_points", rclcpp::QoS(10),
-      [this](sensor_msgs::msg::PointCloud2::SharedPtr msg) { onCloud(*msg); });
+      [this](sensor_msgs::msg::PointCloud2::SharedPtr msg) { autofunction_dealwith_lidar_points(*msg); });
 
     pub_cloud_filtered_ = create_publisher<sensor_msgs::msg::PointCloud2>("/lidar_points_filtered", 10);
     pub_global_unfinished_ = create_publisher<nav_msgs::msg::Path>("/dog_output_global_path_unfinished", 10);
@@ -190,24 +197,49 @@ private:
     have_pct_path_ = !msg.poses.empty();
   }
 
-  void onCloud(const sensor_msgs::msg::PointCloud2& msg)
+  // 点云回调主入口：
+  // - 目的：接收 /lidar_points 点云，统一转换到 head_init 坐标系，并提取可用于2D避障的障碍点。
+  // - 输入：msg（原始 PointCloud2，通常来自 vita_lidar 坐标系，含 x/y/z 字段）。
+  // - 输出：无直接 return；通过成员变量与话题发布产生结果：
+  //   1) 更新 last_obs2d_（供规划器 setObstacles 使用）
+  //   2) 更新 filtered_cloud_ 并发布 /lidar_points_filtered（frame_id=head_init）
+  //   3) 更新 have_cloud_ / planner_obstacles_dirty_ 状态，触发后续重规划流程
+  void autofunction_dealwith_lidar_points(const sensor_msgs::msg::PointCloud2& msg)
   {
-    last_cloud_header_ = msg.header;
-    last_obs2d_.clear();
-    filtered_cloud_.reset();
+    // ============[模块1] 本帧初始化：===========================================================
+    // - 记录最新点云 header（保留时间戳/坐标系等元信息，便于后续调试与关联）。
+    // - 清空上一帧障碍缓存，确保本次规划只基于当前有效点云结果。
+    // - 重置过滤后点云缓存，避免旧数据被误用。
+    // 注意：不要在入口处直接清空 last_obs2d_，否则 TF 失败时会把上一帧有效障碍误清空，
+    // 触发不必要重规划并加剧规划抖动。改为本地构建成功后再一次性提交。
 
-    // Filter: keep 0.1m <= z <= 2.0m; store x/y only.
+    // ============[模块2] 输入有效性快速检查：===========================================================
+    // 若消息无点数据，直接返回，避免后续 TF 查询与遍历开销。
     if (msg.data.empty()) return;
 
-    // 查找并缓存点云到 head_init 的变换；失败时降级使用最近一次有效变换。
+    // ============[模块3] 坐标系对齐（传感器系 -> head_init）：==========================================
+    // - 规划和障碍栅格都工作在 head_init 坐标系，必须先完成统一变换。
+    // - resolveCloudTransformToHeadInit 内部会处理变换不可用场景（含最近一次有效变换降级逻辑）。
+    // - 若本帧无法获得可用变换，直接丢弃本帧，防止障碍投影到错误位置。
     geometry_msgs::msg::TransformStamped cloud_to_head_tf;
     if (!resolveCloudTransformToHeadInit(msg, cloud_to_head_tf)) {
       return;
     }
 
-    // Iterator-based parsing/building (assume x/y/z exist).
+    // ============[模块4] 点云遍历与筛选：===========================================================
+    // 目标：从原始点云中提取“对 2D 规划有意义”的障碍点，并保留可视化点云。
+    //
+    // 处理顺序：
+    // 1) 读取 x/y/z 字段；
+    // 2) 剔除 NaN/Inf 非法点；
+    // 3) 将点从传感器坐标系转换到 head_init；
+    // 4) 执行全局有效范围过滤（x/y 绝对值范围、z 范围）；
+    // 5) 在有效点中再按障碍高度窗 [0.1, 2.0] 提取用于避障的点。
     std::vector<std::array<float, 3>> kept;
+    std::vector<dog_ego_planner::Obstacle2D> new_obs2d;
+    // 预留约一半容量，降低动态扩容开销（经验值，避免过度保守）。
     kept.reserve(msg.width * msg.height / 2);
+    new_obs2d.reserve(msg.width * msg.height / 2);
     try {
       sensor_msgs::PointCloud2ConstIterator<float> it_x(msg, "x");
       sensor_msgs::PointCloud2ConstIterator<float> it_y(msg, "y");
@@ -227,18 +259,26 @@ private:
         if (!valid_range) continue;
 
         if (p_head.z() >= 0.1 && p_head.z() <= 2.0) {
+          // kept: 用于发布过滤后的 debug 点云（保留 xyz）。
           kept.push_back({static_cast<float>(p_head.x()), static_cast<float>(p_head.y()), static_cast<float>(p_head.z())});
-          last_obs2d_.push_back(dog_ego_planner::Obstacle2D{p_head.x(), p_head.y()});
+          // last_obs2d_: 规划器输入，仅保留二维障碍位置（x,y）。
+          new_obs2d.push_back(dog_ego_planner::Obstacle2D{p_head.x(), p_head.y()});
         }
       }
     } catch (const std::runtime_error& e) {
+      // 点云字段异常（如缺少 x/y/z）时节流告警并丢弃本帧，避免刷屏。
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "PointCloud2 iterator error: %s", e.what());
       return;
     }
 
-    // Publish filtered cloud for debug visualization.
+    // ============[模块5] 构建并发布过滤后点云（调试可视化）：===========================================================
+    // - 输出 frame 固定为 head_init（kFrameId），与规划坐标系一致。
+    // - 数据来源于 kept，反映“通过筛选后的障碍相关点”。
     sensor_msgs::msg::PointCloud2 out;
-    out.header.stamp = now();
+    out.header.stamp = msg.header.stamp;
+    if (out.header.stamp.sec == 0 && out.header.stamp.nanosec == 0) {
+      out.header.stamp = this->now();
+    }
     out.header.frame_id = kFrameId;
     out.height = 1;
     out.width = static_cast<uint32_t>(kept.size());
@@ -256,6 +296,13 @@ private:
       *o_y = kept[i][1];
       *o_z = kept[i][2];
     }
+
+    // ============[模块6] 输出状态回写：===========================================================  
+    // - 保存并发布本帧过滤后点云；
+    // - 标记已有有效点云数据；
+    // - 置位障碍脏标记，驱动下游规划流程在下一周期使用新障碍重算。
+    last_cloud_header_ = msg.header;
+    last_obs2d_ = std::move(new_obs2d);
     filtered_cloud_ = out;
     pub_cloud_filtered_->publish(out);
     have_cloud_ = true;
@@ -284,13 +331,46 @@ private:
       return true;
     }
 
+    const bool msg_stamp_zero = (msg.header.stamp.sec == 0 && msg.header.stamp.nanosec == 0);
+    const rclcpp::Time query_stamp = msg_stamp_zero ? now() : rclcpp::Time(msg.header.stamp);
+
     try {
       const tf2::Duration timeout = tf2::durationFromSec(static_cast<double>(cloud_tf_timeout_ms_) / 1000.0);
-      tf_out = tf_buffer_->lookupTransform(kFrameId, source_frame, tf2::TimePointZero, timeout);
+      tf_out = tf_buffer_->lookupTransform(kFrameId, source_frame, query_stamp, timeout);
       last_valid_cloud_tf_ = tf_out;
       return true;
     } catch (const tf2::TransformException& ex) {
+      const std::string ex_msg = ex.what();
+      const bool disconnected_tree = (ex_msg.find("not part of the same tree") != std::string::npos);
+      if (disconnected_tree) {
+        // 坐标树断开时，复用旧TF风险极高，直接丢帧更安全。
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "点云TF查找失败（%s -> %s）：%s，检测到TF树断开，禁用历史TF降级并跳过本帧。",
+          source_frame.c_str(), kFrameId, ex.what());
+        return false;
+      }
       if (last_valid_cloud_tf_) {
+        const rclcpp::Time last_tf_stamp(last_valid_cloud_tf_->header.stamp);
+        const double dt_ms = static_cast<double>((query_stamp - last_tf_stamp).nanoseconds()) / 1e6;
+        if (dt_ms < 0.0) {
+          // 出现时间回拨（常见于仿真/录包重启）时，旧TF不可复用，避免触发 TF_OLD_DATA 链式问题。
+          last_valid_cloud_tf_.reset();
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "检测到时间回拨(%.1fms)，清空历史点云TF并跳过本帧。",
+            dt_ms);
+          return false;
+        }
+        const double fallback_age_ms = dt_ms;
+        if (cloud_tf_fallback_max_age_ms_ >= 0 &&
+            fallback_age_ms > static_cast<double>(cloud_tf_fallback_max_age_ms_)) {
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "点云TF查找失败（%s -> %s）：%s，且最近有效变换已过期(%.1fms > %dms)，跳过本帧点云。",
+            source_frame.c_str(), kFrameId, ex.what(), fallback_age_ms, cloud_tf_fallback_max_age_ms_);
+          return false;
+        }
         tf_out = *last_valid_cloud_tf_;
         RCLCPP_WARN_THROTTLE(
           get_logger(), *get_clock(), 2000,
@@ -578,12 +658,29 @@ private:
     return (c2 - c1).norm() > obs_change_thresh_;
   }
 
+  std::vector<dog_ego_planner::Obstacle2D> filterObstaclesNearRobot(
+    const std::vector<dog_ego_planner::Obstacle2D>& obstacles, const Eigen::Vector2d& cur) const
+  {
+    if (self_obstacle_clear_radius_ <= 0.0 || obstacles.empty()) return obstacles;
+    const double r2 = self_obstacle_clear_radius_ * self_obstacle_clear_radius_;
+    std::vector<dog_ego_planner::Obstacle2D> filtered;
+    filtered.reserve(obstacles.size());
+    for (const auto& o : obstacles) {
+      const double dx = o.x - cur.x();
+      const double dy = o.y - cur.y();
+      if (dx * dx + dy * dy > r2) filtered.push_back(o);
+    }
+    return filtered;
+  }
+
   // 定时器回调：判断重规划触发条件，并执行一次局部重规划。
   void replanTick()
   {
     if (planning_finished_) return;
     if (!have_odom_ || !have_pct_path_) return;
     if (last_global_unfinished_pts_.size() < 2) return;
+    const auto steady_now = std::chrono::steady_clock::now();
+    if (steady_now < replan_cooldown_until_) return;
 
     const Eigen::Vector2d cur = currentPoseXY();
 
@@ -617,7 +714,9 @@ private:
     planner_.setCurrentPose(dog_ego_planner::PathPoint2D{cur.x(), cur.y()});
     // 仅在点云更新后重建障碍地图，避免位姿触发时重复做重活导致CPU飙高。
     if (planner_obstacles_dirty_) {
-      planner_.setObstacles(last_obs2d_);
+      // 保护：剔除机器人自身附近小半径障碍，避免“起点在障碍物内”导致重规划风暴。
+      const auto planning_obs = filterObstaclesNearRobot(last_obs2d_, cur);
+      planner_.setObstacles(planning_obs);
       publishOccupancyMap();
       planner_obstacles_dirty_ = false;
     }
@@ -629,11 +728,26 @@ private:
 
     const bool ok = planner_.makePlan(start_vel, start_acc, goal_vel);
     if (!ok) {
+      ++consecutive_plan_failures_;
+      if (consecutive_plan_failures_ >= std::max(1, max_consecutive_failures_before_cooldown_)) {
+        replan_cooldown_until_ =
+          steady_now + std::chrono::milliseconds(std::max(0, replan_failure_cooldown_ms_));
+        RCLCPP_WARN(
+          get_logger(),
+          "连续规划失败达到阈值(%d次)，进入冷却%dms以避免重规划风暴。",
+          max_consecutive_failures_before_cooldown_, replan_failure_cooldown_ms_);
+        consecutive_plan_failures_ = 0;
+      }
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Local planning failed, reuse last local path.");
+      // 失败也记录一次当前状态快照，避免同一状态在高频定时器下被无意义重复触发。
+      last_plan_pose_ = cur;
+      last_plan_obstacles_ = last_obs2d_;
       // Degrade: publish last local path again.
       pub_local_path_->publish(toPathMsg(last_local_path_pts_));
       return;
     }
+    consecutive_plan_failures_ = 0;
+    replan_cooldown_until_ = std::chrono::steady_clock::time_point::min();
 
     std::vector<dog_ego_planner::PathPoint2D> traj2d;
     planner_.getPlannedTraj(traj2d, 0.1);
@@ -683,6 +797,10 @@ private:
   double cloud_valid_y_abs_max_{200.0};
   double cloud_valid_z_min_{-3.0};
   double cloud_valid_z_max_{5.0};
+  double self_obstacle_clear_radius_{0.45};
+  int cloud_tf_fallback_max_age_ms_{500};
+  int replan_failure_cooldown_ms_{500};
+  int max_consecutive_failures_before_cooldown_{3};
 
   // Subs & pubs
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -717,6 +835,9 @@ private:
   std::vector<Eigen::Vector2d> last_local_path_pts_;
   std::optional<Eigen::Vector2d> last_plan_pose_;
   std::optional<std::vector<dog_ego_planner::Obstacle2D>> last_plan_obstacles_;
+  int consecutive_plan_failures_{0};
+  std::chrono::steady_clock::time_point replan_cooldown_until_{
+    std::chrono::steady_clock::time_point::min()};
 
   dog_ego_planner::PlannerInterfaceDog planner_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
