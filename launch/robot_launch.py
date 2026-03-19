@@ -26,7 +26,7 @@ def generate_launch_description():
         parameters=[
             params_file,
             {"debug": debug},
-            {"use_sim_time": use_sim_time},
+            #{"use_sim_time": use_sim_time},
         ],
     )
 
@@ -42,11 +42,11 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument("debug", default_value="true"),
+            DeclareLaunchArgument("debug", default_value="false"),
             DeclareLaunchArgument("params_file", default_value=default_params_file),
-            DeclareLaunchArgument("use_sim_time", default_value="true"),
+            #DeclareLaunchArgument("use_sim_time", default_value="true"),
             dog_node,
-            rviz_node,
+            #rviz_node,
         ]
     )
 

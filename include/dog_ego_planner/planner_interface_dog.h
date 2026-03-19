@@ -40,7 +40,7 @@ public:
 
   void initParam(double max_vel, double max_acc, double max_jerk);
   void initGridMap(double x_size, double y_size, double resolution, const Eigen::Vector2d& origin,
-                   double inflate_radius);
+                   double inflate_radius, int astar_pool_size = 100);
   void setPrintfOpenOrNot(bool enabled);
   void setMaxReboundRetries(int max_retries);
 

@@ -25,7 +25,8 @@ void PlannerInterfaceDog::initParam(double max_vel, double max_acc, double max_j
 }
 
 void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resolution,
-                                      const Eigen::Vector2d& origin, double inflate_radius)
+                                      const Eigen::Vector2d& origin, double inflate_radius,
+                                      int astar_pool_size)
 {
   (void)origin;  // GridMap2D in demo internally defines its origin behavior; keep signature for future.
   Eigen::Vector2i map_size(static_cast<int>(x_size), static_cast<int>(y_size));
@@ -33,13 +34,20 @@ void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resol
   grid_map_->setPrintfOpenOrNot(printf_open_or_not_);
   grid_map_->setInflateRadius(inflate_radius);
 
+  // 板端调试：用 cerr 无缓冲输出，精确定位卡顿位置
+  std::cerr << "[initGridMap] 1/5 创建 BsplineOptimizer..." << std::endl;
   optimizer_.reset(new ego_planner::BsplineOptimizer);
+  std::cerr << "[initGridMap] 2/5 setParam/setEnv..." << std::endl;
   optimizer_->setParam();
   optimizer_->setPrintfOpenOrNot(printf_open_or_not_);
   optimizer_->setMaxReboundRetries(max_rebound_retries_);
   optimizer_->setEnvironment(grid_map_);
+  std::cerr << "[initGridMap] 3/5 创建 A* 对象..." << std::endl;
   optimizer_->a_star_.reset(new AStar);
-  optimizer_->a_star_->initGridMap(grid_map_, Eigen::Vector2i(100, 100));
+  const int pool = std::max(20, std::min(astar_pool_size, 200));  // 防呆：限制范围
+  std::cerr << "[initGridMap] 4/5 分配 A* 栅格池(" << pool << "x" << pool << ")..." << std::endl;
+  optimizer_->a_star_->initGridMap(grid_map_, Eigen::Vector2i(pool, pool));
+  std::cerr << "[initGridMap] 5/5 规划器初始化完成。" << std::endl;
 }
 
 void PlannerInterfaceDog::setPrintfOpenOrNot(bool enabled)

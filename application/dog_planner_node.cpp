@@ -150,6 +150,7 @@ public:
     grid_map_size_m_ = declare_parameter<double>("grid_map_size_m", 40.0);
     grid_map_resolution_ = declare_parameter<double>("grid_map_resolution", 0.1);
     grid_inflate_radius_ = declare_parameter<double>("grid_inflate_radius", 0.20);
+    astar_pool_size_ = declare_parameter<int>("astar_pool_size", 100);
     occupancy_publish_freq_ = declare_parameter<double>("occupancy_publish_freq", -1.0);
     self_obstacle_clear_radius_ = declare_parameter<double>("self_obstacle_clear_radius", 0.45);
     cloud_tf_fallback_max_age_ms_ = declare_parameter<int>("cloud_tf_fallback_max_age_ms", 500);
@@ -187,12 +188,17 @@ public:
     planner_.initGridMap(
       grid_map_size_m_, grid_map_size_m_, grid_map_resolution_,
       Eigen::Vector2d(-grid_map_size_m_ / 2.0, -grid_map_size_m_ / 2.0),
-      grid_inflate_radius_);
+      grid_inflate_radius_, astar_pool_size_);
     planner_.setPrintfOpenOrNot(printf_open_or_not_);
     planner_.setMaxReboundRetries(max_rebound_retries_);
 
     const int replan_ms = static_cast<int>(std::round(1000.0 / std::max(1.0, replan_freq_)));
     replan_timer_ = create_wall_timer(std::chrono::milliseconds(replan_ms), [this] { replanTick(); });
+
+    data_wait_start_time_ = std::chrono::steady_clock::now();
+    data_wait_timer_ = create_wall_timer(std::chrono::seconds(1), [this] { dataWaitStatusTick(); });
+
+    RCLCPP_INFO(get_logger(), "dog_ego_planner 节点初始化完成，等待 /odometry 和 /pct_path 数据...");
 
     // 定时器：每隔 global_path_update_interval_s_ 秒根据 /pct_path 和当前 /odometry 重新计算全局未完成路径
     if (global_path_update_interval_s_ > 0.0) {
@@ -741,6 +747,21 @@ private:
   }
 
   // 定时器回调：判断重规划触发条件，并执行一次局部重规划。
+  void dataWaitStatusTick()
+  {
+    if (have_odom_ && have_pct_path_) return;
+    const auto elapsed_s =
+      std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::steady_clock::now() - data_wait_start_time_).count();
+    if (!have_odom_ && !have_pct_path_) {
+      std::cout << "等待 /odometry 和 /pct_path 数据，已等待 " << elapsed_s << "s" << std::endl;
+    } else if (have_odom_ && !have_pct_path_) {
+      std::cout << "已经收到 /odometry，等待 /pct_path 数据，已等待 " << elapsed_s << "s" << std::endl;
+    } else {
+      std::cout << "已经收到 /pct_path，等待 /odometry 数据，已等待 " << elapsed_s << "s" << std::endl;
+    }
+  }
+
   void replanTick()
   {
     if (planning_finished_) return;
@@ -884,6 +905,7 @@ private:
   double grid_map_size_m_{40.0};
   double grid_map_resolution_{0.1};
   double grid_inflate_radius_{0.20};
+  int astar_pool_size_{100};
   double occupancy_publish_freq_{-1.0};
   double self_obstacle_clear_radius_{0.45};
   int cloud_tf_fallback_max_age_ms_{500};
@@ -904,6 +926,8 @@ private:
 
   rclcpp::TimerBase::SharedPtr replan_timer_;
   rclcpp::TimerBase::SharedPtr global_path_update_timer_;
+  rclcpp::TimerBase::SharedPtr data_wait_timer_;
+  std::chrono::steady_clock::time_point data_wait_start_time_;
 
   // Latest inputs
   nav_msgs::msg::Odometry last_odom_{};

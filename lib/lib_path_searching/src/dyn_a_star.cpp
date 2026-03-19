@@ -1,6 +1,7 @@
 #include "path_searching/dyn_a_star.h"
 
 #include <cmath>
+#include <iostream>
 
 using namespace std;
 using namespace Eigen;
@@ -40,7 +41,9 @@ void AStar::initGridMap(shared_ptr<GridMap2D> occ_map, const Eigen::Vector2i poo
     POOL_SIZE_ = pool_size;
     CENTER_IDX_ = pool_size / 2;  // 二维中心索引（x,y方向分别取半）
 
-    // 分配二维网格节点指针数组：[x][y]
+    // 分配二维网格节点指针数组：[x][y]（板端可能较慢，此处易卡顿）
+    std::cout << "[AStar::initGridMap] 分配 " << pool_size(0) << "x" << pool_size(1)
+              << " 栅格节点池..." << std::endl;
     GridNodeMap_ = new GridNodePtr*[POOL_SIZE_(0)];
     for (int i = 0; i < POOL_SIZE_(0); ++i)
     {
@@ -52,6 +55,7 @@ void AStar::initGridMap(shared_ptr<GridMap2D> occ_map, const Eigen::Vector2i poo
     }
 
     grid_map_ = occ_map;
+    std::cout << "[AStar::initGridMap] 栅格节点池分配完成。" << std::endl;
 }
 
 // 二维对角线启发函数（已适配）

@@ -35,6 +35,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     grid_map_size_m: 20.0 # 栅格地图边长（米）；以机器人为中心的正方形，原来200m太大导致400万格拖慢全局
     grid_map_resolution: 0.1 # 栅格分辨率（米/格）；40m/0.1=400格 → 16万格（比原来400万格快25倍）
     grid_inflate_radius: 0.20 # 障碍物膨胀半径（米）
+    astar_pool_size: 100 # A* 栅格池边长（板端内存紧张时可改为 50 或 60）
     occupancy_publish_freq: -1.0 # OccupancyGrid发布频率（Hz）；-1表示跟随障碍更新频率（即每次更新都发布），设为2.0则最多2Hz
 
     # =============== 点云TF转换与防呆过滤（统一到head_init） ===============
