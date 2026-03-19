@@ -6,8 +6,14 @@
 
 // 构造函数：初始化地图（世界尺寸→栅格数量，初始化原始/膨胀网格）
 GridMap2D::GridMap2D(double resolution, const Eigen::Vector2i& world_size)
-    : resolution_(resolution), inflate_radius_(0.5),world_size_(world_size) {  // 默认膨胀半径0.5米
-   
+    : resolution_(resolution), inflate_radius_(0.5), world_size_(world_size)
+{
+    if (resolution <= 0.0 || !std::isfinite(resolution)) {
+        throw std::invalid_argument("[GridMap2D] resolution 必须为正且有限");
+    }
+    if (world_size.x() <= 0 || world_size.y() <= 0) {
+        throw std::invalid_argument("[GridMap2D] world_size 必须为正");
+    }
 }
 
 void GridMap2D::setCurPose(double x,double y)

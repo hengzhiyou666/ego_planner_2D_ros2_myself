@@ -7,7 +7,7 @@
 #include <queue>
 #include <memory>
 
-constexpr double inf = 1 >> 20;
+constexpr double inf = 1e20;  // 防呆：原 1>>20 为位运算得0，改为大数表示无穷
 struct GridNode;
 typedef GridNode *GridNodePtr;
 
@@ -80,7 +80,7 @@ private:
 
 	std::vector<GridNodePtr> gridPath_;
 
-	GridNodePtr **GridNodeMap_;
+	GridNodePtr **GridNodeMap_{nullptr};  // 防呆：显式初始化为 nullptr，避免析构时未定义行为
 	std::priority_queue<GridNodePtr, std::vector<GridNodePtr>, NodeComparator> openSet_;
 
 	int rounds_{0};
@@ -88,7 +88,7 @@ private:
 public:
 	typedef std::shared_ptr<AStar> Ptr;
 
-	AStar(){};
+	AStar() = default;
 	~AStar();
 
 	void initGridMap(std::shared_ptr<GridMap2D> occ_map, const Eigen::Vector2i pool_size);

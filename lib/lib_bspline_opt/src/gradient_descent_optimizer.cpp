@@ -44,7 +44,8 @@ GradientDescentOptimizer::optimize(Eigen::VectorXd &x_init_optimal, double &opt_
     {
         Eigen::VectorXd s = x_kp1 - x_k;
         Eigen::VectorXd y = grad_kp1 - grad_k;
-        double alpha = s.dot(y) / y.dot(y);
+        const double y_dot_y = y.dot(y);
+        double alpha = (y_dot_y > 1e-20) ? (s.dot(y) / y_dot_y) : 0.01;  // 防呆：y 为零向量时避免除零
         if (isnan(alpha) || isinf(alpha))
         {
             cout << RED << "step size invalid! alpha=" << alpha << RESET << endl;
@@ -53,14 +54,21 @@ GradientDescentOptimizer::optimize(Eigen::VectorXd &x_init_optimal, double &opt_
 
         if (iter % 2) // to aviod copying operations
         {
+            constexpr int kMaxArmijoIter = 100;  // 防呆：防止 Armijo 线搜索死循环
+            int armijo_iter = 0;
             do
             {
+                if (++armijo_iter > kMaxArmijoIter) {
+                    cout << RED << "Armijo line search exceeded max iterations" << RESET << endl;
+                    return REACH_MAX_ITERATION;
+                }
                 x_k = x_kp1 - alpha * grad_kp1;
                 cost_k = objfun_(x_k, grad_k, force_return, f_data);
                 invoke_count++;
                 if (force_return)
                     return RETURN_BY_ORDER;
                 alpha *= 0.5;
+                if (alpha < 1e-20) break;  // 防呆：alpha 下溢则退出
             } while (cost_k > cost_kp1 - 1e-4 * alpha * grad_kp1.transpose() * grad_kp1); // Armijo condition
 
             if (grad_k.norm() < min_grad_)
@@ -71,14 +79,21 @@ GradientDescentOptimizer::optimize(Eigen::VectorXd &x_init_optimal, double &opt_
         }
         else
         {
+            constexpr int kMaxArmijoIter2 = 100;  // 防呆
+            int armijo_iter2 = 0;
             do
             {
+                if (++armijo_iter2 > kMaxArmijoIter2) {
+                    cout << RED << "Armijo line search exceeded max iterations" << RESET << endl;
+                    return REACH_MAX_ITERATION;
+                }
                 x_kp1 = x_k - alpha * grad_k;
                 cost_kp1 = objfun_(x_kp1, grad_kp1, force_return, f_data);
                 invoke_count++;
                 if (force_return)
                     return RETURN_BY_ORDER;
                 alpha *= 0.5;
+                if (alpha < 1e-20) break;  // 防呆：alpha 下溢则退出
             } while (cost_kp1 > cost_k - 1e-4 * alpha * grad_k.transpose() * grad_k); // Armijo condition
 
             if (grad_kp1.norm() < min_grad_)

@@ -48,7 +48,10 @@ void BsplineOptimizer::setBsplineInterval(const double &ts) { bspline_interval_ 
 
 std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Eigen::MatrixXd &init_points, bool flag_first_init /*= true*/)
 {
-
+    if (!grid_map_) {
+        std::cerr << "[initControlPoints] grid_map_ 未设置。" << std::endl;
+        return {};
+    }
     const bool need_resize = flag_first_init || static_cast<int>(cps_.base_point.size()) != init_points.cols();
     if (need_resize)
     {
@@ -69,16 +72,21 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
 
     /*** Segment the initial trajectory according to obstacles ***/
     constexpr int ENOUGH_INTERVAL = 2;
-    double step_size = grid_map_->getResolution() / ((init_points.col(0) - init_points.rightCols(1)).norm() / (init_points.cols() - 1)) / 2;
+    const double seg_norm = (init_points.col(0) - init_points.rightCols(1)).norm();
+    const double denom = (init_points.cols() - 1) > 0 ? (seg_norm / (init_points.cols() - 1)) / 2 : 1e-6;
+    double step_size = (denom > 1e-12) ? (grid_map_->getResolution() / denom) : 0.05;  // 防呆：避免除零或 step_size 过小
+    step_size = std::max(step_size, 1e-6);  // 防呆：保证步长下限，防止 for(a-=step) 死循环
     int in_id = -1, out_id = -1;
     vector<std::pair<int, int>> segment_ids;
     int same_occ_state_times = ENOUGH_INTERVAL + 1;
     bool occ, last_occ = false;
     bool flag_got_start = false, flag_got_end = false, flag_got_end_maybe = false;
     int i_end = (int)init_points.cols() - order_ - ((int)init_points.cols() - 2 * order_) / 3; // only check closed 2/3 points.
+    constexpr int kMaxSegmentAlphaIter = 100000;  // 防呆：防止 for(a-=step) 死循环
     for (int i = order_; i <= i_end; ++i)
     {
-      for (double a = 1.0; a >= 0.0; a -= step_size)
+      int alpha_iter = 0;
+      for (double a = 1.0; a >= 0.0 && alpha_iter < kMaxSegmentAlphaIter; a -= step_size, ++alpha_iter)
       {
         occ = grid_map_->getInflateOccupancy(a * init_points.col(i - 1) + (1 - a) * init_points.col(i));
         // cout << setprecision(5);
@@ -209,6 +217,7 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
     }
 
     /*** Assign data to each segment ***/
+    constexpr int kMaxAstarBisect = 10000;  // 防呆：防止二分查找死循环（全段共用）
     for (size_t i = 0; i < segment_ids.size(); i++)
     {
       // step 1
@@ -221,10 +230,12 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
       {
         Eigen::Vector2d ctrl_pts_law(cps_.points.col(j + 1) - cps_.points.col(j - 1)), intersection_point;
         const int path_size = static_cast<int>(a_star_pathes[i].size());
-        int Astar_id = path_size / 2, last_Astar_id; // Let "Astar_id = id_of_the_most_far_away_Astar_point" will be better, but it needs more computation
+        int Astar_id = path_size / 2, last_Astar_id;
         double val = (a_star_pathes[i][Astar_id] - cps_.points.col(j)).dot(ctrl_pts_law), last_val = val;
+        int astar_iter = 0;
         while (Astar_id >= 0 && Astar_id < path_size)
         {
+          if (++astar_iter > kMaxAstarBisect) break;  // 防呆
           last_Astar_id = Astar_id;
 
           if (val >= 0)
@@ -239,13 +250,12 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
 
           if (val * last_val <= 0 && (abs(val) > 0 || abs(last_val) > 0)) // val = last_val = 0.0 is not allowed
           {
+            const double denom_t = ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]);
+            if (std::abs(denom_t) < 1e-12) break;  // 防呆：避免除零
             intersection_point =
                 a_star_pathes[i][Astar_id] +
                 ((a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]) *
-                 (ctrl_pts_law.dot(cps_.points.col(j) - a_star_pathes[i][Astar_id]) / ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id])) // = t
-                );
-
-            //cout << "i=" << i << " j=" << j << " Astar_id=" << Astar_id << " last_Astar_id=" << last_Astar_id << " intersection_point = " << intersection_point.transpose() << endl;
+                 (ctrl_pts_law.dot(cps_.points.col(j) - a_star_pathes[i][Astar_id]) / denom_t));
 
             got_intersection_id = j;
             break;
@@ -258,14 +268,17 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
           double length = (intersection_point - cps_.points.col(j)).norm();
           if (length > 1e-5)
           {
-            for (double a = length; a >= 0.0; a -= grid_map_->getResolution())
+            const double res = std::max(grid_map_->getResolution(), 1e-6);  // 防呆：避免除零或步长为0导致死循环
+            constexpr int kMaxInflateIter = 100000;
+            int inflate_iter = 0;
+            for (double a = length; a >= 0.0 && inflate_iter < kMaxInflateIter; a -= res, ++inflate_iter)
             {
               occ = grid_map_->getInflateOccupancy((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
 
-              if (occ || a < grid_map_->getResolution())
+              if (occ || a < res)
               {
                 if (occ)
-                  a += grid_map_->getResolution();
+                  a += res;
                 cps_.base_point[j].push_back((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
                 cps_.direction[j].push_back((intersection_point - cps_.points.col(j)).normalized());
                 break;
@@ -281,10 +294,12 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
         Eigen::Vector2d ctrl_pts_law(cps_.points.col(segment_ids[i].second) - cps_.points.col(segment_ids[i].first)), intersection_point;
         Eigen::Vector2d middle_point = (cps_.points.col(segment_ids[i].second) + cps_.points.col(segment_ids[i].first)) / 2;
         const int path_size = static_cast<int>(a_star_pathes[i].size());
-        int Astar_id = path_size / 2, last_Astar_id; // Let "Astar_id = id_of_the_most_far_away_Astar_point" will be better, but it needs more computation
+        int Astar_id = path_size / 2, last_Astar_id;
         double val = (a_star_pathes[i][Astar_id] - middle_point).dot(ctrl_pts_law), last_val = val;
+        int astar_iter2 = 0;
         while (Astar_id >= 0 && Astar_id < path_size)
         {
+          if (++astar_iter2 > kMaxAstarBisect) break;  // 防呆
           last_Astar_id = Astar_id;
 
           if (val >= 0)
@@ -299,11 +314,12 @@ std::vector<std::vector<Eigen::Vector2d>> BsplineOptimizer::initControlPoints(Ei
 
           if (val * last_val <= 0 && (abs(val) > 0 || abs(last_val) > 0)) // val = last_val = 0.0 is not allowed
           {
+            const double denom_t2 = ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]);
+            if (std::abs(denom_t2) < 1e-12) break;  // 防呆：避免除零
             intersection_point =
                 a_star_pathes[i][Astar_id] +
                 ((a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]) *
-                 (ctrl_pts_law.dot(middle_point - a_star_pathes[i][Astar_id]) / ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id])) // = t
-                );
+                 (ctrl_pts_law.dot(middle_point - a_star_pathes[i][Astar_id]) / denom_t2));
 
             if ((intersection_point - middle_point).norm() > 0.01) // 1cm.
             {
@@ -430,7 +446,8 @@ void BsplineOptimizer::calcFitnessCost(const Eigen::MatrixXd &q, double &cost, E
   {
     // 2D 控制点加权平均
     Eigen::Vector2d x = (q.col(i - 1) + 4 * q.col(i) + q.col(i + 1)) / 6.0 - ref_pts_[i - 1];
-    Eigen::Vector2d v = (ref_pts_[i] - ref_pts_[i - 2]).normalized();
+    Eigen::Vector2d dv = ref_pts_[i] - ref_pts_[i - 2];
+    Eigen::Vector2d v = (dv.norm() > 1e-12) ? dv.normalized() : Eigen::Vector2d(1, 0);  // 防呆：零向量 normalized() 会 NaN
 
     double xdotv = x.dot(v);
     double xcrossv_mag = x(0)*v(1) - x(1)*v(0); // 2D 叉乘（大小）
@@ -621,11 +638,8 @@ void BsplineOptimizer::calcSmoothnessCost(const Eigen::MatrixXd &q, double &cost
     cost = 0.0;
     /* abbreviation */
     double ts, /*vm2, am2, */ ts_inv2;
-    // vm2 = max_vel_ * max_vel_;
-    // am2 = max_acc_ * max_acc_;
-
-    ts = bspline_interval_;
-    ts_inv2 = 1 / ts / ts;
+    ts = std::max(bspline_interval_, 1e-9);  // 防呆：避免除零
+    ts_inv2 = 1.0 / (ts * ts);
 
     /* velocity feasibility */
     for (int i = 0; i < q.cols() - 1; i++)
@@ -698,7 +712,7 @@ void BsplineOptimizer::calcSmoothnessCost(const Eigen::MatrixXd &q, double &cost
 
 bool BsplineOptimizer::check_collision_and_rebound(void)
 {
-
+    constexpr int kMaxAstarBisect = 10000;  // 防呆：防止二分查找死循环
     int end_idx = cps_.size - order_;
 
     /*** Check and segment the initial trajectory according to obstacles ***/
@@ -801,10 +815,12 @@ bool BsplineOptimizer::check_collision_and_rebound(void)
         {
           Eigen::Vector2d ctrl_pts_law(cps_.points.col(j + 1) - cps_.points.col(j - 1)), intersection_point;
           const int path_size = static_cast<int>(a_star_pathes[i].size());
-          int Astar_id = path_size / 2, last_Astar_id; // Let "Astar_id = id_of_the_most_far_away_Astar_point" will be better, but it needs more computation
+          int Astar_id = path_size / 2, last_Astar_id;
           double val = (a_star_pathes[i][Astar_id] - cps_.points.col(j)).dot(ctrl_pts_law), last_val = val;
+          int astar_iter3 = 0;
           while (Astar_id >= 0 && Astar_id < path_size)
           {
+            if (++astar_iter3 > kMaxAstarBisect) break;  // 防呆
             last_Astar_id = Astar_id;
 
             if (val >= 0)
@@ -817,15 +833,14 @@ bool BsplineOptimizer::check_collision_and_rebound(void)
 
             val = (a_star_pathes[i][Astar_id] - cps_.points.col(j)).dot(ctrl_pts_law);
 
-            // cout << val << endl;
-
             if (val * last_val <= 0 && (abs(val) > 0 || abs(last_val) > 0)) // val = last_val = 0.0 is not allowed
             {
+              const double denom_t3 = ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]);
+              if (std::abs(denom_t3) < 1e-12) break;  // 防呆：避免除零
               intersection_point =
                   a_star_pathes[i][Astar_id] +
                   ((a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]) *
-                   (ctrl_pts_law.dot(cps_.points.col(j) - a_star_pathes[i][Astar_id]) / ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id])) // = t
-                  );
+                   (ctrl_pts_law.dot(cps_.points.col(j) - a_star_pathes[i][Astar_id]) / denom_t3));
 
               got_intersection_id = j;
               break;
@@ -838,14 +853,17 @@ bool BsplineOptimizer::check_collision_and_rebound(void)
             double length = (intersection_point - cps_.points.col(j)).norm();
             if (length > 1e-5)
             {
-              for (double a = length; a >= 0.0; a -= grid_map_->getResolution())
+              const double res_inflate = std::max(grid_map_->getResolution(), 1e-6);  // 防呆
+              constexpr int kMaxInflateIter2 = 100000;
+              int inflate_iter2 = 0;
+              for (double a = length; a >= 0.0 && inflate_iter2 < kMaxInflateIter2; a -= res_inflate, ++inflate_iter2)
               {
                 bool occ = grid_map_->getInflateOccupancy((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
 
-                if (occ || a < grid_map_->getResolution())
+                if (occ || a < res_inflate)
                 {
                   if (occ)
-                    a += grid_map_->getResolution();
+                    a += res_inflate;
                   cps_.base_point[j].push_back((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
                   cps_.direction[j].push_back((intersection_point - cps_.points.col(j)).normalized());
                   break;
@@ -984,8 +1002,13 @@ bool BsplineOptimizer::rebound_optimize()
       UniformBspline traj = UniformBspline(cps_.points, 3, bspline_interval_);
       double tm, tmp;
       traj.getTimeSpan(tm, tmp);
-      double t_step = (tmp - tm) / ((traj.evaluateDeBoorT(tmp) - traj.evaluateDeBoorT(tm)).norm() / grid_map_->getResolution());
-      for (double t = tm; t < tmp * 2 / 3; t += t_step)
+      const double denom_norm = (traj.evaluateDeBoorT(tmp) - traj.evaluateDeBoorT(tm)).norm();
+      const double res = std::max(grid_map_->getResolution(), 1e-9);
+      double t_step = (denom_norm > 1e-12) ? ((tmp - tm) / (denom_norm / res)) : (tmp - tm) / 100.0;  // 防呆：避免除零或 t_step 为 0
+      t_step = std::max(t_step, 1e-9);  // 防呆：保证步长 > 0，防止 for 死循环
+      constexpr int kMaxCollisionCheckIter = 100000;
+      int coll_iter = 0;
+      for (double t = tm; t < tmp * 2 / 3 && coll_iter < kMaxCollisionCheckIter; t += t_step, ++coll_iter)
       {
         Eigen::Vector2d ctrl_point_2d = traj.evaluateDeBoorT(t);
         flag_occ = grid_map_->getInflateOccupancy(ctrl_point_2d);
@@ -1076,8 +1099,13 @@ bool BsplineOptimizer::refine_optimize()
     UniformBspline traj = UniformBspline(cps_.points, 3, bspline_interval_);
     double tm, tmp;
     traj.getTimeSpan(tm, tmp);
-    double t_step = (tmp - tm) / ((traj.evaluateDeBoorT(tmp).topRows(2) - traj.evaluateDeBoorT(tm).topRows(2)).norm() / grid_map_->getResolution());
-    for (double t = tm; t < tmp * 2 / 3; t += t_step)
+    const double denom_norm_ref = (traj.evaluateDeBoorT(tmp).topRows(2) - traj.evaluateDeBoorT(tm).topRows(2)).norm();
+    const double res_ref = std::max(grid_map_->getResolution(), 1e-9);
+    double t_step = (denom_norm_ref > 1e-12) ? ((tmp - tm) / (denom_norm_ref / res_ref)) : (tmp - tm) / 100.0;  // 防呆
+    t_step = std::max(t_step, 1e-9);  // 防呆
+    constexpr int kMaxRefineCheckIter = 100000;
+    int refine_iter = 0;
+    for (double t = tm; t < tmp * 2 / 3 && refine_iter < kMaxRefineCheckIter; t += t_step, ++refine_iter)
     {
       Eigen::Vector2d ctrl_point_2d = traj.evaluateDeBoorT(t).topRows(2);
       if (grid_map_->getInflateOccupancy(ctrl_point_2d))
@@ -1153,8 +1181,8 @@ void BsplineOptimizer::calKappaCost(const Eigen::MatrixXd &q, double &cost,
                            Eigen::MatrixXd &gradient)
 {
   cost = 0.0;
-  double ts = bspline_interval_;
-  double ts_inv2 = 1 / ts / ts;
+  double ts = std::max(bspline_interval_, 1e-9);  // 防呆：避免除零
+  double ts_inv2 = 1.0 / (ts * ts);
   double k_max = 2;
   double K_weight = lambda5_;
   const double epsilon = 1e-6;
@@ -1233,8 +1261,8 @@ void BsplineOptimizer::calTurnCost(const Eigen::MatrixXd &q, double &cost,
                            Eigen::MatrixXd &gradient)
 {
   cost = 0.0;
-  double ts = bspline_interval_;
-  double ts_inv2 = 1 / ts / ts;
+  double ts = std::max(bspline_interval_, 1e-9);  // 防呆：避免除零
+  double ts_inv2 = 1.0 / (ts * ts);
   double w_max = 1.0;
   double w_weight = 0.1;
   gradient.setZero(2, q.cols()); // 2D 梯度

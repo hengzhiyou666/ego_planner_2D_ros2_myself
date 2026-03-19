@@ -1,5 +1,6 @@
 #include "dog_ego_planner/planner_interface_dog.h"
 
+#include <cmath>
 #include <cstdio>
 #include <iostream>
 
@@ -13,9 +14,9 @@ PlannerInterfaceDog::~PlannerInterfaceDog() = default;
 
 void PlannerInterfaceDog::initParam(double max_vel, double max_acc, double max_jerk)
 {
-  pp_.max_vel_ = max_vel;
-  pp_.max_acc_ = max_acc;
-  pp_.max_jerk_ = max_jerk;
+  pp_.max_vel_ = std::max(max_vel, 1e-6);   // 防呆：避免除零
+  pp_.max_acc_ = std::max(max_acc, 1e-6);
+  pp_.max_jerk_ = std::max(max_jerk, 1e-6);
   pp_.feasibility_tolerance_ = 0.05;
 
   // Strictly follow paper configs (2D adaptation):
@@ -79,7 +80,10 @@ void PlannerInterfaceDog::setObstacles(const std::vector<Obstacle2D>& obstacles)
 
   grid_map_->resetMap();
 
-  for (const auto& ob : obstacles) {
+  constexpr size_t kMaxObstacles = 500000;  // 防呆：限制单次障碍数量，避免内存爆炸
+  const size_t n = std::min(obstacles.size(), kMaxObstacles);
+  for (size_t i = 0; i < n; ++i) {
+    const auto& ob = obstacles[i];
     Eigen::Vector2d coord(ob.x, ob.y);
     Eigen::Vector2i idx = grid_map_->worldToGrid(coord);
     grid_map_->setObstacle(idx, true);
@@ -147,7 +151,8 @@ bool PlannerInterfaceDog::reboundReplan(const Eigen::Vector3d& start_pt, const E
   start_end_derivatives.push_back(start_acc);
 
   const double dist = (start_pt - local_target_pt).norm();
-  double ts = dist > 0.1 ? pp_.ctrl_pt_dist / pp_.max_vel_ * 1.2 : pp_.ctrl_pt_dist / pp_.max_vel_ * 5.0;
+  const double max_vel_safe = std::max(pp_.max_vel_, 1e-6);  // 防呆：避免除零
+  double ts = dist > 0.1 ? pp_.ctrl_pt_dist / max_vel_safe * 1.2 : pp_.ctrl_pt_dist / max_vel_safe * 5.0;
 
   Eigen::MatrixXd ctrl_pts_3d;
   ego_planner::UniformBspline::parameterizeToBspline(ts, point_set, start_end_derivatives, ctrl_pts_3d);
@@ -220,9 +225,13 @@ bool PlannerInterfaceDog::refineTrajAlgo(ego_planner::UniformBspline& traj,
     std::cerr << "[PlannerInterfaceDog] invalid segment number for refine: cols=" << ctrl_pts.cols() << "\n";
     return false;
   }
-  const double t_step = traj.getTimeSum() / double(denom);
+  const double time_sum = traj.getTimeSum();
+  const double t_step = (denom > 0 && time_sum > 1e-12) ? (time_sum / double(denom)) : 0.01;  // 防呆：避免除零
+  const double step_safe = std::max(t_step, 1e-9);  // 防呆：保证步长 > 0
   optimizer_->ref_pts_.clear();
-  for (double t = 0.0; t < traj.getTimeSum() + 1e-4; t += t_step) {
+  constexpr int kMaxRefPtsIter = 100000;
+  int ref_iter = 0;
+  for (double t = 0.0; t < time_sum + 1e-4 && ref_iter < kMaxRefPtsIter; t += step_safe, ++ref_iter) {
     optimizer_->ref_pts_.push_back(traj.evaluateDeBoorT(t).topRows(2));
   }
 
@@ -263,7 +272,10 @@ void PlannerInterfaceDog::reparamBspline(ego_planner::UniformBspline& bspline,
   time_inc = duration - time_origin;
 
   std::vector<Eigen::Vector3d> point_set;
-  for (double time = 0.0; time <= duration + 1e-4; time += dt) {
+  const double dt_safe = std::max(dt, 1e-9);  // 防呆：dt 为 0 会导致死循环
+  constexpr int kMaxReparamIter = 100000;
+  int reparam_iter = 0;
+  for (double time = 0.0; time <= duration + 1e-4 && reparam_iter < kMaxReparamIter; time += dt_safe, ++reparam_iter) {
     point_set.push_back(bspline.evaluateDeBoorT(time));
   }
 
@@ -275,6 +287,9 @@ void PlannerInterfaceDog::getPlannedTraj(std::vector<PathPoint2D>& out_traj_poin
   out_traj_points.clear();
   if (local_data_.duration_ <= 0.0) return;
 
+  // 防呆：sample_dt 必须为正且有限，避免死循环
+  if (sample_dt <= 0.0 || !std::isfinite(sample_dt)) sample_dt = 0.1;
+
   // Demo UniformBspline getters are non-const; make a local copy.
   ego_planner::UniformBspline pos_copy = local_data_.position_traj_;
   const Eigen::MatrixXd pos_pts = pos_copy.getControlPoint();
@@ -284,7 +299,9 @@ void PlannerInterfaceDog::getPlannedTraj(std::vector<PathPoint2D>& out_traj_poin
   pos_traj.setKnot(knots);
 
   const double T = pos_traj.getTimeSum();
-  for (double t = 0.0; t <= T + 1e-6; t += sample_dt) {
+  constexpr int kMaxSampleIter = 100000;
+  int sample_iter = 0;
+  for (double t = 0.0; t <= T + 1e-6 && sample_iter < kMaxSampleIter; t += sample_dt, ++sample_iter) {
     const Eigen::Vector3d p = pos_traj.evaluateDeBoorT(t);
     out_traj_points.push_back(PathPoint2D{p.x(), p.y()});
   }

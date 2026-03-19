@@ -1,4 +1,5 @@
 #include "bspline_opt/uniform_bspline.h"
+#include <cmath>
 // #include <ros/ros.h>
 
 namespace ego_planner
@@ -65,11 +66,18 @@ namespace ego_planner
 
     // determine which [ui,ui+1] lay in
     int k = p_;
+    constexpr int kMaxKnotSearch = 100000;  // 防呆：防止异常 knot 导致死循环
+    int knot_iter = 0;
     while (true)
     {
       if (u_(k + 1) >= ub)
         break;
       ++k;
+      if (++knot_iter > kMaxKnotSearch || k >= m_ - p_) {  // 防呆
+        k = std::min(k, m_ - p_ - 1);
+        if (k < p_) k = p_;
+        break;
+      }
     }
 
     /* deBoor's alg */
@@ -104,8 +112,12 @@ namespace ego_planner
     Eigen::MatrixXd ctp(control_points_.rows(), control_points_.cols() - 1);
     for (int i = 0; i < ctp.cols(); ++i)
     {
-      ctp.col(i) =
-          p_ * (control_points_.col(i + 1) - control_points_.col(i)) / (u_(i + p_ + 1) - u_(i + 1));
+      const double denom = u_(i + p_ + 1) - u_(i + 1);
+      if (std::abs(denom) > 1e-12) {
+        ctp.col(i) = p_ * (control_points_.col(i + 1) - control_points_.col(i)) / denom;
+      } else {
+        ctp.col(i) = Eigen::VectorXd::Zero(control_points_.rows());  // 防呆：避免除零
+      }
     }
     return ctp;
   }
@@ -145,7 +157,13 @@ namespace ego_planner
     double enlarged_vel_lim = limit_vel_ * (1.0 + feasibility_tolerance_) + 1e-4;
     for (int i = 0; i < P.cols() - 1; ++i)
     {
-      Eigen::VectorXd vel = p_ * (P.col(i + 1) - P.col(i)) / (u_(i + p_ + 1) - u_(i + 1));
+      const double denom_vel = u_(i + p_ + 1) - u_(i + 1);
+      Eigen::VectorXd vel;
+      if (std::abs(denom_vel) > 1e-12) {
+        vel = p_ * (P.col(i + 1) - P.col(i)) / denom_vel;
+      } else {
+        vel = Eigen::VectorXd::Zero(P.rows());  // 防呆：避免除零
+      }
 
       if (fabs(vel(0)) > enlarged_vel_lim || fabs(vel(1)) > enlarged_vel_lim ||
           fabs(vel(2)) > enlarged_vel_lim)
@@ -167,11 +185,15 @@ namespace ego_planner
     double enlarged_acc_lim = limit_acc_ * (1.0 + feasibility_tolerance_) + 1e-4;
     for (int i = 0; i < P.cols() - 2; ++i)
     {
-
-      Eigen::VectorXd acc = p_ * (p_ - 1) *
-                            ((P.col(i + 2) - P.col(i + 1)) / (u_(i + p_ + 2) - u_(i + 2)) -
-                             (P.col(i + 1) - P.col(i)) / (u_(i + p_ + 1) - u_(i + 1))) /
-                            (u_(i + p_ + 1) - u_(i + 2));
+      const double d1 = u_(i + p_ + 2) - u_(i + 2);
+      const double d2 = u_(i + p_ + 1) - u_(i + 1);
+      const double d3 = u_(i + p_ + 1) - u_(i + 2);
+      Eigen::VectorXd acc;
+      if (std::abs(d1) > 1e-12 && std::abs(d2) > 1e-12 && std::abs(d3) > 1e-12) {
+        acc = p_ * (p_ - 1) * ((P.col(i + 2) - P.col(i + 1)) / d1 - (P.col(i + 1) - P.col(i)) / d2) / d3;
+      } else {
+        acc = Eigen::VectorXd::Zero(P.rows());  // 防呆：避免除零
+      }
 
       if (fabs(acc(0)) > enlarged_acc_lim || fabs(acc(1)) > enlarged_acc_lim ||
           fabs(acc(2)) > enlarged_acc_lim)
@@ -188,7 +210,9 @@ namespace ego_planner
       }
     }
 
-    ratio = max(max_vel / limit_vel_, sqrt(fabs(max_acc) / limit_acc_));
+    const double limit_vel_safe = std::max(limit_vel_, 1e-9);  // 防呆：避免除零
+    const double limit_acc_safe = std::max(limit_acc_, 1e-9);
+    ratio = max(max_vel / limit_vel_safe, sqrt(fabs(max_acc) / limit_acc_safe));
 
     return fea;
   }
@@ -197,6 +221,7 @@ namespace ego_planner
   {
     int num1 = 5;
     int num2 = getKnot().rows() - 1 - 5;
+    if (num2 <= num1) return;  // 防呆：knot 数量不足，避免除零
 
     double delta_t = (ratio - 1.0) * (u_(num2) - u_(num1));
     double t_inc = delta_t / double(num2 - num1);
@@ -293,8 +318,12 @@ namespace ego_planner
   {
     double length = 0.0;
     double dur = getTimeSum();
+    if (dur <= 0.0 || res <= 0.0 || !std::isfinite(res)) return 0.0;  // 防呆：避免死循环
+    const double step = std::max(res, 1e-9);  // 防呆：保证步长 > 0
+    constexpr int kMaxLengthIter = 1000000;
+    int len_iter = 0;
     Eigen::VectorXd p_l = evaluateDeBoorT(0.0), p_n;
-    for (double t = res; t <= dur + 1e-4; t += res)
+    for (double t = step; t <= dur + 1e-4 && len_iter < kMaxLengthIter; t += step, ++len_iter)
     {
       p_n = evaluateDeBoorT(t);
       length += (p_n - p_l).norm();
@@ -327,24 +356,24 @@ namespace ego_planner
   {
     UniformBspline vel = getDerivative();
     double tm, tmp;
-    vel.getTimeSpan(tm, tmp);
-
+    if (!vel.getTimeSpan(tm, tmp)) { mean_v = 0.0; max_v = 0.0; return; }  // 防呆
+    constexpr double kStep = 0.01;
+    constexpr int kMaxVelIter = 100000;
     double max_vel = -1.0, mean_vel = 0.0;
     int num = 0;
-    for (double t = tm; t <= tmp; t += 0.01)
+    for (double t = tm; t <= tmp + 1e-4 && num < kMaxVelIter; t += kStep, ++num)
     {
       Eigen::VectorXd vxd = vel.evaluateDeBoor(t);
       double vn = vxd.norm();
 
       mean_vel += vn;
-      ++num;
       if (vn > max_vel)
       {
         max_vel = vn;
       }
     }
 
-    mean_vel = mean_vel / double(num);
+    mean_vel = (num > 0) ? (mean_vel / double(num)) : 0.0;  // 防呆：避免除零
     mean_v = mean_vel;
     max_v = max_vel;
   }
@@ -353,24 +382,24 @@ namespace ego_planner
   {
     UniformBspline acc = getDerivative().getDerivative();
     double tm, tmp;
-    acc.getTimeSpan(tm, tmp);
-
+    if (!acc.getTimeSpan(tm, tmp)) { mean_a = 0.0; max_a = 0.0; return; }  // 防呆
+    constexpr double kStep = 0.01;
+    constexpr int kMaxAccIter = 100000;
     double max_acc = -1.0, mean_acc = 0.0;
     int num = 0;
-    for (double t = tm; t <= tmp; t += 0.01)
+    for (double t = tm; t <= tmp + 1e-4 && num < kMaxAccIter; t += kStep, ++num)
     {
       Eigen::VectorXd axd = acc.evaluateDeBoor(t);
       double an = axd.norm();
 
       mean_acc += an;
-      ++num;
       if (an > max_acc)
       {
         max_acc = an;
       }
     }
 
-    mean_acc = mean_acc / double(num);
+    mean_acc = (num > 0) ? (mean_acc / double(num)) : 0.0;  // 防呆：避免除零
     mean_a = mean_acc;
     max_a = max_acc;
   }

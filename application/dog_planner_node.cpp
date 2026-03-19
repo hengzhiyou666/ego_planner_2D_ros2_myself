@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -38,6 +39,7 @@ double dist2d(const Eigen::Vector2d& a, const Eigen::Vector2d& b) { return (a - 
 // Find index of closest point.
 size_t closestIndex(const std::vector<Eigen::Vector2d>& pts, const Eigen::Vector2d& q)
 {
+  if (pts.empty()) return 0;  // 防呆：空容器时返回 0，调用方需确保非空
   size_t best = 0;
   double best_d2 = std::numeric_limits<double>::infinity();
   for (size_t i = 0; i < pts.size(); ++i) {
@@ -70,7 +72,8 @@ InterpOnPath pointAlongPath(const std::vector<Eigen::Vector2d>& pts, size_t star
   if (target_len <= 0.0) return out;
 
   double acc = 0.0;
-  for (size_t i = start_idx; i + 1 < pts.size(); ++i) {
+  constexpr size_t kMaxPathSegments = 100000;  // 防呆：防止异常长路径死循环
+  for (size_t i = start_idx; i + 1 < pts.size() && (i - start_idx) < kMaxPathSegments; ++i) {
     const double seg = (pts[i + 1] - pts[i]).norm();
     if (acc + seg >= target_len && seg > 1e-9) {
       const double rem = target_len - acc;
@@ -83,7 +86,7 @@ InterpOnPath pointAlongPath(const std::vector<Eigen::Vector2d>& pts, size_t star
   }
   // beyond end: clamp
   out.p = pts.back();
-  out.i0 = pts.size() - 2;
+  out.i0 = (pts.size() >= 2) ? (pts.size() - 2) : 0;  // 防呆：pts.size()==1 时避免 size_t 下溢
   out.alpha = 1.0;
   return out;
 }
@@ -91,14 +94,16 @@ InterpOnPath pointAlongPath(const std::vector<Eigen::Vector2d>& pts, size_t star
 // Build a simple hash-set from points for obstacle-change detection.
 int64_t hashKey(double x, double y, double res)
 {
-  const int64_t ix = static_cast<int64_t>(std::llround(x / res));
-  const int64_t iy = static_cast<int64_t>(std::llround(y / res));
+  const double res_safe = std::max(std::abs(res), 1e-9);  // 防呆：避免除零
+  const int64_t ix = static_cast<int64_t>(std::llround(x / res_safe));
+  const int64_t iy = static_cast<int64_t>(std::llround(y / res_safe));
   return (ix << 32) ^ (iy & 0xffffffff);
 }
 
 std::unordered_set<int64_t> quantizeSet(const std::vector<dog_ego_planner::Obstacle2D>& obs, double res)
 {
   std::unordered_set<int64_t> s;
+  if (std::abs(res) < 1e-12) return s;  // 防呆：res 过小或为 0 时返回空集
   s.reserve(obs.size());
   for (const auto& o : obs) s.insert(hashKey(o.x, o.y, res));
   return s;
@@ -280,7 +285,11 @@ private:
       sensor_msgs::PointCloud2ConstIterator<float> it_x(msg, "x");
       sensor_msgs::PointCloud2ConstIterator<float> it_y(msg, "y");
       sensor_msgs::PointCloud2ConstIterator<float> it_z(msg, "z");
-      for (; it_x != it_x.end(); ++it_x, ++it_y, ++it_z) {
+      const size_t max_points = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
+      constexpr size_t kMaxPointCloudPoints = 10000000;  // 防呆：防止异常大点云导致长时间循环
+      const size_t iter_limit = std::min(max_points, kMaxPointCloudPoints);
+      size_t point_count = 0;
+      for (; it_x != it_x.end() && point_count < iter_limit; ++it_x, ++it_y, ++it_z, ++point_count) {
         Eigen::Vector3d p_sensor(*it_x, *it_y, *it_z);
         if (!std::isfinite(p_sensor.x()) || !std::isfinite(p_sensor.y()) || !std::isfinite(p_sensor.z())) {
           continue;
@@ -480,9 +489,11 @@ private:
     out_pts.reserve(200);
     out_pts.push_back(A);
     const double AC = dist2d(A, C);
-    if (AC >= 0.1) {
+    if (AC >= 0.1 && std::isfinite(AC)) {  // 防呆：AC 非有限则跳过
       const Eigen::Vector2d dir = (C - A) / AC;
-      for (double d = 0.1; d < AC; d += 0.1) {
+      constexpr int kMaxInterpIter = 10000;
+      int interp_iter = 0;
+      for (double d = 0.1; d < AC && interp_iter < kMaxInterpIter; d += 0.1, ++interp_iter) {
         out_pts.push_back(A + dir * d);
       }
     }
@@ -523,11 +534,12 @@ private:
                                                  double horizon_m, Eigen::Vector2d& out_temp_goal) const
   {
     std::vector<Eigen::Vector2d> curve;
-    if (global_unfinished.size() < 2) return curve;
+    if (global_unfinished.size() < 2 || horizon_m <= 0.0 || !std::isfinite(horizon_m)) return curve;  // 防呆
     curve.reserve(100);
     curve.push_back(global_unfinished.front());
     double acc = 0.0;
-    for (size_t i = 1; i < global_unfinished.size(); ++i) {
+    constexpr size_t kMaxHorizonIter = 100000;  // 防呆：防止异常长路径死循环
+    for (size_t i = 1; i < global_unfinished.size() && (i - 1) < kMaxHorizonIter; ++i) {
       const double seg = (global_unfinished[i] - global_unfinished[i - 1]).norm();
       if (acc + seg >= horizon_m && seg > 1e-9) {
         const double rem = horizon_m - acc;
@@ -599,12 +611,15 @@ private:
     } else if (idx.size() < 20) {
       // Add more by denser sampling.
       size_t step = 2;
-      while (idx.size() < 20 && step >= 1) {
+      constexpr int kMaxSampleRetry = 10;  // 防呆：防止异常情况死循环
+      int retry = 0;
+      while (idx.size() < 20 && step >= 1 && retry < kMaxSampleRetry) {
         for (size_t i = 0; i < n && idx.size() < 20; i += step) keep.insert(i);
         idx.assign(keep.begin(), keep.end());
         std::sort(idx.begin(), idx.end());
         if (step == 1) break;
         step = 1;
+        ++retry;
       }
     }
     return idx;
@@ -700,6 +715,7 @@ private:
     const std::vector<dog_ego_planner::Obstacle2D>& obstacles, const Eigen::Vector2d& cur) const
   {
     if (self_obstacle_clear_radius_ <= 0.0 || obstacles.empty()) return obstacles;
+    if (!std::isfinite(cur.x()) || !std::isfinite(cur.y())) return obstacles;  // 防呆：非法位姿
     const double r2 = self_obstacle_clear_radius_ * self_obstacle_clear_radius_;
     std::vector<dog_ego_planner::Obstacle2D> filtered;
     filtered.reserve(obstacles.size());
@@ -764,7 +780,10 @@ private:
     const std::vector<size_t> ctrl_idx = sampleControlPointIndices(curve1);
     std::vector<dog_ego_planner::PathPoint2D> ctrl_pts;
     ctrl_pts.reserve(ctrl_idx.size());
-    for (auto i : ctrl_idx) ctrl_pts.push_back({curve1[i].x(), curve1[i].y()});
+    const size_t curve1_size = curve1.size();
+    for (auto i : ctrl_idx) {
+      if (i < curve1_size) ctrl_pts.push_back({curve1[i].x(), curve1[i].y()});  // 防呆：避免越界
+    }
 
     // Feed planner.
     planner_.setCurrentPose(dog_ego_planner::PathPoint2D{cur.x(), cur.y()});

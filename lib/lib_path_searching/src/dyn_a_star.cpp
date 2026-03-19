@@ -1,5 +1,7 @@
 #include "path_searching/dyn_a_star.h"
 
+#include <cmath>
+
 using namespace std;
 using namespace Eigen;
 
@@ -24,6 +26,17 @@ AStar::~AStar()
 // 初始化二维网格地图
 void AStar::initGridMap(shared_ptr<GridMap2D> occ_map, const Eigen::Vector2i pool_size)
 {
+    // 防呆：校验 pool_size 合法性，避免非法分配或除零
+    if (pool_size(0) <= 0 || pool_size(1) <= 0) {
+        std::cerr << "[initGridMap] 非法 pool_size (" << pool_size(0) << "," << pool_size(1) << ")，跳过初始化。" << std::endl;
+        return;
+    }
+    constexpr int kMaxPoolDim = 10000;  // 防呆：限制单维最大尺寸，避免内存爆炸
+    if (pool_size(0) > kMaxPoolDim || pool_size(1) > kMaxPoolDim) {
+        std::cerr << "[initGridMap] pool_size 超过限制 " << kMaxPoolDim << "，跳过初始化。" << std::endl;
+        return;
+    }
+
     POOL_SIZE_ = pool_size;
     CENTER_IDX_ = pool_size / 2;  // 二维中心索引（x,y方向分别取半）
 
@@ -72,12 +85,19 @@ double AStar::getEuclHeu(GridNodePtr node1, GridNodePtr node2)
 vector<GridNodePtr> AStar::retrievePath(GridNodePtr current)
 {
     vector<GridNodePtr> path;
+    if (current == nullptr) return path;
     path.push_back(current);
 
+    constexpr int kMaxPathNodes = 100000;  // 防呆：防止异常图结构导致死循环
+    int node_count = 1;
     while (current->cameFrom != nullptr)
     {
         current = current->cameFrom;
         path.push_back(current);
+        if (++node_count >= kMaxPathNodes) {
+            std::cerr << "[retrievePath] 超过最大路径节点数，疑似图结构异常，提前退出。" << std::endl;
+            break;
+        }
     }
 
     return path;
@@ -169,8 +189,16 @@ bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector2d start_pt, Vector2d en
 // 二维A*搜索主函数
 bool AStar::AstarSearch(const double step_size, Vector2d start_pt, Vector2d end_pt)
 {
+    if (GridNodeMap_ == nullptr) {
+        std::cerr << "[AstarSearch] GridNodeMap_ 未初始化，请先调用 initGridMap。" << std::endl;
+        return false;
+    }
     ++rounds_;  // 搜索轮次计数（用于节点状态重置）
 
+    if (step_size <= 0.0 || !std::isfinite(step_size)) {
+        std::cerr << "[AstarSearch] step_size 必须为正且有限，当前=" << step_size << std::endl;
+        return false;
+    }
     step_size_ = step_size;
     inv_step_size_ = 1.0 / step_size;
     center_ = (start_pt + end_pt) / 2.0;  // 中心位置（保留z但不影响二维搜索）
@@ -206,10 +234,15 @@ bool AStar::AstarSearch(const double step_size, Vector2d start_pt, Vector2d end_
 
     double tentative_gScore;  // 临时g值（代价）
     int num_iter = 0;         // 迭代计数
+    constexpr int kMaxAStarIter = 500000;  // 防呆：A* 最大迭代次数，防止病态地图死循环
 
     while (!openSet_.empty())
     {
         ++num_iter;
+        if (num_iter > kMaxAStarIter) {
+            std::cerr << "[AstarSearch] 超过最大迭代次数 " << kMaxAStarIter << "，提前退出。" << std::endl;
+            return false;
+        }
         current = openSet_.top();  // 取出f值最小的节点
         openSet_.pop();
 
@@ -308,9 +341,9 @@ vector<Vector3d> AStar::get3DPath()
     Eigen::Vector2d pos2d;
     for (auto ptr : gridPath_)
     {
+        if (ptr == nullptr) continue;  // 防呆：跳过空指针
         pos2d = Index2Coord(ptr->index);
-        pos<<pos2d(0),pos2d(1),0,
-        std::cout << "pos2d:" << pos2d << std::endl;
+        pos << pos2d(0), pos2d(1), 0;  // 修复：原语法错误（逗号/分号混用及多余 cout）
         path.push_back(pos);
     }
     reverse(path.begin(), path.end());
