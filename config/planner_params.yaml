@@ -13,3 +13,8 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     max_jerk: 5.0 # 最大加加速度约束（单位：米/秒^3）
     printfOpenOrNot: false # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
     max_rebound_retries: 5 # 反弹优化被取消时的最大重试次数（0表示不重试）
+    cloud_tf_timeout_ms: 100 # 点云坐标TF查找超时时间（单位：毫秒），超时后尝试使用最近一次有效变换
+    cloud_valid_x_abs_max: 200.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
+    cloud_valid_y_abs_max: 200.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
+    cloud_valid_z_min: -3.0 # 点云转换到head_init后，z轴有效最小值（单位：米）
+    cloud_valid_z_max: 5.0 # 点云转换到head_init后，z轴有效最大值（单位：米）

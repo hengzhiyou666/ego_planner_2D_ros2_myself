@@ -7,6 +7,7 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <std_msgs/msg/header.hpp>
 
 #include <Eigen/Dense>
@@ -19,6 +20,10 @@
 #include <optional>
 #include <unordered_set>
 #include <vector>
+
+#include <tf2/time.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include "dog_ego_planner/planner_interface_dog.h"
 
@@ -131,6 +136,11 @@ public:
     max_jerk_ = declare_parameter<double>("max_jerk", 5.0);
     printf_open_or_not_ = declare_parameter<bool>("printfOpenOrNot", true);
     max_rebound_retries_ = declare_parameter<int>("max_rebound_retries", 5);
+    cloud_tf_timeout_ms_ = declare_parameter<int>("cloud_tf_timeout_ms", 100);
+    cloud_valid_x_abs_max_ = declare_parameter<double>("cloud_valid_x_abs_max", 200.0);
+    cloud_valid_y_abs_max_ = declare_parameter<double>("cloud_valid_y_abs_max", 200.0);
+    cloud_valid_z_min_ = declare_parameter<double>("cloud_valid_z_min", -3.0);
+    cloud_valid_z_max_ = declare_parameter<double>("cloud_valid_z_max", 5.0);
 
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       "/odometry", rclcpp::QoS(10),
@@ -148,6 +158,10 @@ public:
     pub_global_unfinished_ = create_publisher<nav_msgs::msg::Path>("/dog_output_global_path_unfinished", 10);
     pub_local_path_ = create_publisher<nav_msgs::msg::Path>("/dog_output_local_path", 10);
     pub_occupancy_map_ = create_publisher<nav_msgs::msg::OccupancyGrid>("/dog_2Dmap_occupancy", 1);
+
+    // TF 监听器：用于将激光点云从 vita_lidar 等传感器坐标系转换到 head_init。
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     // Init planner core
     planner_.initParam(max_vel_, max_acc_, max_jerk_);
@@ -185,6 +199,12 @@ private:
     // Filter: keep 0.1m <= z <= 2.0m; store x/y only.
     if (msg.data.empty()) return;
 
+    // 查找并缓存点云到 head_init 的变换；失败时降级使用最近一次有效变换。
+    geometry_msgs::msg::TransformStamped cloud_to_head_tf;
+    if (!resolveCloudTransformToHeadInit(msg, cloud_to_head_tf)) {
+      return;
+    }
+
     // Iterator-based parsing/building (assume x/y/z exist).
     std::vector<std::array<float, 3>> kept;
     kept.reserve(msg.width * msg.height / 2);
@@ -193,12 +213,22 @@ private:
       sensor_msgs::PointCloud2ConstIterator<float> it_y(msg, "y");
       sensor_msgs::PointCloud2ConstIterator<float> it_z(msg, "z");
       for (; it_x != it_x.end(); ++it_x, ++it_y, ++it_z) {
-        const float x = *it_x;
-        const float y = *it_y;
-        const float z = *it_z;
-        if (std::isfinite(x) && std::isfinite(y) && std::isfinite(z) && z >= 0.1f && z <= 2.0f) {
-          kept.push_back({x, y, z});
-          last_obs2d_.push_back(dog_ego_planner::Obstacle2D{static_cast<double>(x), static_cast<double>(y)});
+        Eigen::Vector3d p_sensor(*it_x, *it_y, *it_z);
+        if (!std::isfinite(p_sensor.x()) || !std::isfinite(p_sensor.y()) || !std::isfinite(p_sensor.z())) {
+          continue;
+        }
+
+        // 先做坐标转换，再执行范围与高度过滤，确保后续障碍栅格与规划坐标系一致。
+        const Eigen::Vector3d p_head = transformPointCloudToHeadInit(p_sensor, cloud_to_head_tf);
+        const bool valid_range = std::isfinite(p_head.x()) && std::isfinite(p_head.y()) && std::isfinite(p_head.z()) &&
+                                 std::abs(p_head.x()) <= cloud_valid_x_abs_max_ &&
+                                 std::abs(p_head.y()) <= cloud_valid_y_abs_max_ &&
+                                 p_head.z() >= cloud_valid_z_min_ && p_head.z() <= cloud_valid_z_max_;
+        if (!valid_range) continue;
+
+        if (p_head.z() >= 0.1 && p_head.z() <= 2.0) {
+          kept.push_back({static_cast<float>(p_head.x()), static_cast<float>(p_head.y()), static_cast<float>(p_head.z())});
+          last_obs2d_.push_back(dog_ego_planner::Obstacle2D{p_head.x(), p_head.y()});
         }
       }
     } catch (const std::runtime_error& e) {
@@ -230,6 +260,60 @@ private:
     pub_cloud_filtered_->publish(out);
     have_cloud_ = true;
     planner_obstacles_dirty_ = true;
+  }
+
+  bool resolveCloudTransformToHeadInit(const sensor_msgs::msg::PointCloud2& msg,
+                                       geometry_msgs::msg::TransformStamped& tf_out)
+  {
+    if (!tf_buffer_) return false;
+
+    const std::string source_frame = msg.header.frame_id.empty() ? std::string(kFrameId) : msg.header.frame_id;
+    if (source_frame == kFrameId) {
+      geometry_msgs::msg::TransformStamped identity;
+      identity.header.stamp = msg.header.stamp;
+      identity.header.frame_id = kFrameId;
+      identity.child_frame_id = kFrameId;
+      identity.transform.translation.x = 0.0;
+      identity.transform.translation.y = 0.0;
+      identity.transform.translation.z = 0.0;
+      identity.transform.rotation.x = 0.0;
+      identity.transform.rotation.y = 0.0;
+      identity.transform.rotation.z = 0.0;
+      identity.transform.rotation.w = 1.0;
+      tf_out = identity;
+      return true;
+    }
+
+    try {
+      const tf2::Duration timeout = tf2::durationFromSec(static_cast<double>(cloud_tf_timeout_ms_) / 1000.0);
+      tf_out = tf_buffer_->lookupTransform(kFrameId, source_frame, tf2::TimePointZero, timeout);
+      last_valid_cloud_tf_ = tf_out;
+      return true;
+    } catch (const tf2::TransformException& ex) {
+      if (last_valid_cloud_tf_) {
+        tf_out = *last_valid_cloud_tf_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "点云TF查找失败（%s -> %s）：%s，降级使用最近一次有效变换。",
+          source_frame.c_str(), kFrameId, ex.what());
+        return true;
+      }
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "点云TF查找失败（%s -> %s）：%s，且无历史有效变换，跳过本帧点云。",
+        source_frame.c_str(), kFrameId, ex.what());
+      return false;
+    }
+  }
+
+  Eigen::Vector3d transformPointCloudToHeadInit(
+    const Eigen::Vector3d& p_sensor, const geometry_msgs::msg::TransformStamped& tf_sensor_to_head_init) const
+  {
+    const auto& t = tf_sensor_to_head_init.transform.translation;
+    const auto& q = tf_sensor_to_head_init.transform.rotation;
+    const Eigen::Quaterniond q_rot(q.w, q.x, q.y, q.z);
+    const Eigen::Vector3d trans(t.x, t.y, t.z);
+    return q_rot * p_sensor + trans;
   }
 
   Eigen::Vector2d currentPoseXY() const
@@ -594,6 +678,11 @@ private:
   double max_jerk_{5.0};
   bool printf_open_or_not_{true};
   int max_rebound_retries_{5};
+  int cloud_tf_timeout_ms_{100};
+  double cloud_valid_x_abs_max_{200.0};
+  double cloud_valid_y_abs_max_{200.0};
+  double cloud_valid_z_min_{-3.0};
+  double cloud_valid_z_max_{5.0};
 
   // Subs & pubs
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -616,6 +705,7 @@ private:
   bool have_pct_path_{false};
   bool have_cloud_{false};
   bool planner_obstacles_dirty_{true};
+  std::optional<geometry_msgs::msg::TransformStamped> last_valid_cloud_tf_;
 
   std::vector<dog_ego_planner::Obstacle2D> last_obs2d_;
 
@@ -629,6 +719,8 @@ private:
   std::optional<std::vector<dog_ego_planner::Obstacle2D>> last_plan_obstacles_;
 
   dog_ego_planner::PlannerInterfaceDog planner_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 
 int main(int argc, char** argv)

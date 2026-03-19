@@ -1,0 +1,22 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/heng/livox_ros_driver2_ws/install/livox_ros_driver2/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/hzy/0.0egoplanner_myself/src/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ros2",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
