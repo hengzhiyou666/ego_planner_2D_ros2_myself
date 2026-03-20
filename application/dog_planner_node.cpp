@@ -161,17 +161,24 @@ public:
     max_consecutive_failures_before_cooldown_ =
       declare_parameter<int>("max_consecutive_failures_before_cooldown", 3);
 
+    topic_odom_ = declare_parameter<std::string>("topic_odom", "/odometry");
+    topic_pct_path_ = declare_parameter<std::string>("topic_pct_path", "/pct_path");
+    topic_lidar_ = declare_parameter<std::string>("topic_lidar", "/lidar_points");
+
+    // 使用 best_effort QoS 以兼容机器狗上常见的传感器发布者（RELIABLE 发布者也可被 best_effort 订阅接收）
+    const auto qos_best_effort = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile();
+
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      "/odometry", rclcpp::QoS(10),
+      topic_odom_, qos_best_effort,
       [this](nav_msgs::msg::Odometry::SharedPtr msg) { onOdom(*msg); });
 
     path_sub_ = create_subscription<nav_msgs::msg::Path>(
-      "/pct_path", rclcpp::QoS(10),
+      topic_pct_path_, qos_best_effort,
       [this](nav_msgs::msg::Path::SharedPtr msg) { autofunction_dealwith_pct_path(*msg); });
 
     // 订阅激光点云话题：队列深度为 10，收到每帧点云后交给 autofunction_dealwith_lidar_points 进行预处理与建图更新。
     cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/lidar_points", rclcpp::QoS(10),
+      topic_lidar_, qos_best_effort,
       [this](sensor_msgs::msg::PointCloud2::SharedPtr msg) { autofunction_dealwith_lidar_points(*msg); });
 
     pub_cloud_filtered_ = create_publisher<sensor_msgs::msg::PointCloud2>("/lidar_points_filtered", 10);
@@ -198,7 +205,8 @@ public:
     data_wait_start_time_ = std::chrono::steady_clock::now();
     data_wait_timer_ = create_wall_timer(std::chrono::seconds(1), [this] { dataWaitStatusTick(); });
 
-    RCLCPP_INFO(get_logger(), "dog_ego_planner 节点初始化完成，等待 /odometry 和 /pct_path 数据...");
+    RCLCPP_INFO(get_logger(), "dog_ego_planner 节点初始化完成，订阅话题: %s, %s, %s",
+                topic_odom_.c_str(), topic_pct_path_.c_str(), topic_lidar_.c_str());
 
     // 定时器：每隔 global_path_update_interval_s_ 秒根据 /pct_path 和当前 /odometry 重新计算全局未完成路径
     if (global_path_update_interval_s_ > 0.0) {
@@ -209,15 +217,35 @@ public:
   }
 
 private:
+
+  /*
+  *
+  * 功能：接收 /odometry 话题，并更新 last_odom_ 和 have_odom_ 状态。
+  * 输入：msg（nav_msgs::msg::Odometry 类型，包含机器人位姿信息）
+  * 输出：无直接 return；通过成员变量与话题发布产生结果：
+  *   1) 更新 last_odom_（供后续规划使用）
+  *   2) 更新 have_odom_ 状态，触发后续重规划流程
+  * 注意：
+  * - 本函数仅处理有效位姿数据（非 NaN/Inf），其他情况直接返回。
+  * - 位姿数据通常来自里程计（odom）传感器，包含 x/y/z 位置与四元数姿态。
+  */
   void onOdom(const nav_msgs::msg::Odometry& msg)
   {
+    cout << "进入/Odometry回调函数" << endl;
+    if (!std::isfinite(msg.pose.pose.position.x) || !std::isfinite(msg.pose.pose.position.y)) {
+      std::cout << "收到odom话题，但是/odometry 为空" << std::endl;
+      return;  // 无效数据，不进行计算
+    }
+    std::cout << "收到odom话题，并且/odometry 不为空，可用来计算" << std::endl;
     last_odom_ = msg;
     have_odom_ = true;
   }
 
   void autofunction_dealwith_pct_path(const nav_msgs::msg::Path& msg)
   {
+    cout << "进入/pct_path回调函数" << endl;
     if (msg.poses.empty()) {
+      std::cout << "收到pct话题，但是/pct_path 为空" << std::endl;
       have_pct_path_ = false;
       return;
     }
@@ -226,6 +254,7 @@ private:
     }
     last_pct_path_ = msg;
     have_pct_path_ = true;
+    std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
     updateGlobalUnfinished();
   }
 
@@ -251,6 +280,7 @@ private:
   //   3) 更新 have_cloud_ / planner_obstacles_dirty_ 状态，触发后续重规划流程
   void autofunction_dealwith_lidar_points(const sensor_msgs::msg::PointCloud2& msg)
   {
+    cout << "进入/lidar_points回调函数" << endl;
     // ============[模块1] 本帧初始化：===========================================================
     // - 记录最新点云 header（保留时间戳/坐标系等元信息，便于后续调试与关联）。
     // - 清空上一帧障碍缓存，确保本次规划只基于当前有效点云结果。
@@ -914,6 +944,9 @@ private:
   double if_test_pct_path_update_tolerance_{0.01};
   int replan_failure_cooldown_ms_{500};
   int max_consecutive_failures_before_cooldown_{3};
+  std::string topic_odom_{"/odometry"};
+  std::string topic_pct_path_{"/pct_path"};
+  std::string topic_lidar_{"/lidar_points"};
 
   // Subs & pubs
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;

@@ -1,5 +1,10 @@
 dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
   ros__parameters: # ROS2 参数命名空间
+    # =============== 订阅话题（机器狗上可能与电脑不同，需按实际话题名配置） ===============
+    topic_odom: "/odometry"      # 里程计话题，机器狗上可能是 /odom 等
+    topic_pct_path: "/pct_path"  # 全局路径话题
+    topic_lidar: "/lidar_points" # 激光点云话题（PointCloud2 类型），机器狗上需与发布者一致
+
     # =============== 基础运行开关 ===============
     debug: true # 是否开启调试模式（true 会输出更多调试信息）
     use_sim_time: true # 是否使用仿真时间（true=仿真/回放，false=系统时钟；所有节点需保持一致，否则会出现TF_OLD_DATA）
