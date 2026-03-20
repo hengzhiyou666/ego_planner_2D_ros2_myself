@@ -4,10 +4,14 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     topic_odom: "/odometry"      # 里程计话题，机器狗上可能是 /odom 等
     topic_pct_path: "/pct_path"  # 全局路径话题
     topic_lidar: "/lidar_points" # 激光点云话题（PointCloud2 类型），机器狗上需与发布者一致
+    # 与发布端 QoS 对齐：Path 常见为 Nav2/CLI 默认 RELIABLE+TRANSIENT_LOCAL；里程计常见为 BEST_EFFORT
+    pct_path_match_nav2_qos: true   # true=订阅用 RELIABLE+TRANSIENT_LOCAL（匹配 Nav2/ros2 topic pub 默认）；false=纯 BEST_EFFORT+VOLATILE（仅当路径发布端也是 volatile 时）
+    odometry_use_best_effort_qos: true  # false 时用 RELIABLE+VOLATILE 订阅里程计（仅当 best_effort 与发布端始终无法匹配时尝试）
 
     # =============== 基础运行开关 ===============
     debug: true # 是否开启调试模式（true 会输出更多调试信息）
-    use_sim_time: true # 是否使用仿真时间（true=仿真/回放，false=系统时钟；所有节点需保持一致，否则会出现TF_OLD_DATA）
+    # 板端/真机务必 false：true 且无 /clock 时 ROS 时钟不前进，tf2 带 timeout 的 lookup 会死循环卡死
+    use_sim_time: false
 
     # =============== 全局路径更新 ===============
     global_path_update_interval_s: 1.0 # 定时器周期（秒），每隔该时间根据 /pct_path 和当前 /odometry 重新计算全局未完成路径；0 或负值表示禁用定时器

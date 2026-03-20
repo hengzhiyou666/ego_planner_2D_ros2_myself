@@ -109,7 +109,7 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Install RViz config.
+# 可选：随包安装 RViz 配置，便于本机手动 `rviz2 -d .../dog_debug.rviz`（launch 不启动 rviz）
 install(DIRECTORY
   rviz
   DESTINATION share/${PROJECT_NAME}

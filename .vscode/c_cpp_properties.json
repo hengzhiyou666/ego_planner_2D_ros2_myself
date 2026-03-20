@@ -8,7 +8,7 @@
       "includePath": [
         "/heng/livox_ros_driver2_ws/install/livox_ros_driver2/include/**",
         "/opt/ros/humble/include/**",
-        "/home/hzy/0.0egoplanner_myself/src/include/**",
+        "/home/hzy/0.0egoplanner_myself2/src/ego_planner_2D_ros2_myself/include/**",
         "/usr/include/**"
       ],
       "name": "ros2",
