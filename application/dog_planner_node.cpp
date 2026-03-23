@@ -130,7 +130,7 @@ public:
       // 强制系统时钟：避免参数误配为 true 且无 /clock 时 TF Buffer 超时等待死循环（板端默认场景）
       rclcpp::NodeOptions().append_parameter_override("use_sim_time", false))
   {
-    debug_ = declare_parameter<bool>("debug", true);
+    debug_ = declare_parameter<bool>("debug", false);
     goal_threshold_ = declare_parameter<double>("goal_threshold", 0.1);
     pose_change_thresh_ = declare_parameter<double>("pose_change_thresh", 0.05);
     obs_change_thresh_ = declare_parameter<double>("obs_change_thresh", 0.1);  // used as quantize res baseline
@@ -248,31 +248,45 @@ private:
   */
   void onOdom(const nav_msgs::msg::Odometry& msg)
   {
-    cout << "进入/Odometry回调函数" << endl;
+    if (debug_) {
+      std::cout << "进入/Odometry回调函数" << std::endl;
+    }
     if (!std::isfinite(msg.pose.pose.position.x) || !std::isfinite(msg.pose.pose.position.y)) {
-      std::cout << "收到odom话题，但是/odometry 为空" << std::endl;
+      if (debug_) {
+        std::cout << "收到odom话题，但是/odometry 为空" << std::endl;
+      }
       return;  // 无效数据，不进行计算
     }
-    std::cout << "收到odom话题，并且/odometry 不为空，可用来计算" << std::endl;
+    if (debug_) {
+      std::cout << "收到odom话题，并且/odometry 不为空，可用来计算" << std::endl;
+    }
     last_odom_ = msg;
     have_odom_ = true;
   }
 
   void autofunction_dealwith_pct_path(const nav_msgs::msg::Path& msg)
   {
-    cout << "进入/pct_path回调函数" << endl;
+    if (debug_) {
+      std::cout << "进入/pct_path回调函数" << std::endl;
+    }
     if (msg.poses.empty()) {
-      std::cout << "收到pct话题，但是/pct_path 为空" << std::endl;
+      if (debug_) {
+        std::cout << "收到pct话题，但是/pct_path 为空" << std::endl;
+      }
       have_pct_path_ = false;
       return;
     }
     if (if_test_pct_path_update_ && isSamePath(msg, last_pct_path_)) {
-      std::cout << "收到pct话题，并且/pct_path 与上次相同，跳过" << std::endl;
+      if (debug_) {
+        std::cout << "收到pct话题，并且/pct_path 与上次相同，跳过" << std::endl;
+      }
       return;
     }
     last_pct_path_ = msg;
     have_pct_path_ = true;
-    std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
+    if (debug_) {
+      std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
+    }
     updateGlobalUnfinished();
   }
 
@@ -298,40 +312,54 @@ private:
   //   3) 更新 have_cloud_ / planner_obstacles_dirty_ 状态，触发后续重规划流程
   void autofunction_dealwith_lidar_points(const sensor_msgs::msg::PointCloud2& msg)
   {
-    std::cout << "[lidar] 进入 /lidar_points 回调" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar] 进入 /lidar_points 回调" << std::endl;
+    }
     // ============[模块1] 本帧初始化：===========================================================
     // - 记录最新点云 header（保留时间戳/坐标系等元信息，便于后续调试与关联）。
     // - 清空上一帧障碍缓存，确保本次规划只基于当前有效点云结果。
     // - 重置过滤后点云缓存，避免旧数据被误用。
     // 注意：不要在入口处直接清空 last_obs2d_，否则 TF 失败时会把上一帧有效障碍误清空，
     // 触发不必要重规划并加剧规划抖动。改为本地构建成功后再一次性提交。
-    std::cout << "[lidar][模块1] 本帧输入: frame_id=\"" << msg.header.frame_id << "\" stamp=" << msg.header.stamp.sec
-              << "." << msg.header.stamp.nanosec << " width=" << msg.width << " height=" << msg.height
-              << " data_size=" << msg.data.size() << " point_step=" << static_cast<unsigned>(msg.point_step)
-              << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块1] 本帧输入: frame_id=\"" << msg.header.frame_id << "\" stamp=" << msg.header.stamp.sec
+                << "." << msg.header.stamp.nanosec << " width=" << msg.width << " height=" << msg.height
+                << " data_size=" << msg.data.size() << " point_step=" << static_cast<unsigned>(msg.point_step)
+                << std::endl;
+    }
 
     // ============[模块2] 输入有效性快速检查：===========================================================
     // 若消息无点数据，直接返回，避免后续 TF 查询与遍历开销。
     if (msg.data.empty()) 
     {
-      std::cout << "[lidar][模块2] 收到点云但 data 为空，直接 return" << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块2] 收到点云但 data 为空，直接 return" << std::endl;
+      }
       return;
     }
-    std::cout << "[lidar][模块2] 点云 data 非空，继续" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块2] 点云 data 非空，继续" << std::endl;
+    }
 
     // ============[模块3] 坐标系对齐（传感器系 -> head_init）：==========================================
     // - 规划和障碍栅格都工作在 head_init 坐标系，必须先完成统一变换。
     // - resolveCloudTransformToHeadInit 内部会处理变换不可用场景（含最近一次有效变换降级逻辑）。
     // - 若本帧无法获得可用变换，直接丢弃本帧，防止障碍投影到错误位置。
-    std::cout << "[lidar][模块3] 请求 TF: " << (msg.header.frame_id.empty() ? std::string(kFrameId) : msg.header.frame_id)
-              << " -> " << kFrameId << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块3] 请求 TF: " << (msg.header.frame_id.empty() ? std::string(kFrameId) : msg.header.frame_id)
+                << " -> " << kFrameId << std::endl;
+    }
     geometry_msgs::msg::TransformStamped cloud_to_head_tf;
     if (!resolveCloudTransformToHeadInit(msg, cloud_to_head_tf)) {
-      std::cout << "[lidar][模块3] TF 解析失败，丢弃本帧 return" << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块3] TF 解析失败，丢弃本帧 return" << std::endl;
+      }
       return;
     }
-    std::cout << "[lidar][模块3] TF 成功: parent=" << cloud_to_head_tf.header.frame_id
-              << " child=" << cloud_to_head_tf.child_frame_id << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块3] TF 成功: parent=" << cloud_to_head_tf.header.frame_id
+                << " child=" << cloud_to_head_tf.child_frame_id << std::endl;
+    }
 
     // ============[模块4] 点云遍历与筛选：===========================================================
     // 目标：从原始点云中提取“对 2D 规划有意义”的障碍点，并保留可视化点云。
@@ -345,9 +373,11 @@ private:
     const double cur_x = have_odom_ ? last_odom_.pose.pose.position.x : 0.0;
     const double cur_y = have_odom_ ? last_odom_.pose.pose.position.y : 0.0;
     const double map_half = grid_map_size_m_ / 2.0;
-    std::cout << "[lidar][模块4] 参考位置: have_odom=" << (have_odom_ ? "true" : "false") << " cur=(" << cur_x << "," << cur_y
-              << ") map_half=" << map_half << "m  cloud_valid_z=[" << cloud_valid_z_min_ << "," << cloud_valid_z_max_
-              << "]  障碍高度窗=[0.1,2.0]" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块4] 参考位置: have_odom=" << (have_odom_ ? "true" : "false") << " cur=(" << cur_x << "," << cur_y
+                << ") map_half=" << map_half << "m  cloud_valid_z=[" << cloud_valid_z_min_ << "," << cloud_valid_z_max_
+                << "]  障碍高度窗=[0.1,2.0]" << std::endl;
+    }
     std::vector<std::array<float, 3>> kept;
     std::vector<dog_ego_planner::Obstacle2D> new_obs2d;
     // 预留约一半容量，降低动态扩容开销（经验值，避免过度保守）。
@@ -359,7 +389,9 @@ private:
     size_t dbg_outside_map = 0;
     size_t dbg_not_obstacle_height = 0;
     try {
-      std::cout << "[lidar][模块4] 开始遍历点云字段 x/y/z ..." << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块4] 开始遍历点云字段 x/y/z ..." << std::endl;
+      }
       sensor_msgs::PointCloud2ConstIterator<float> it_x(msg, "x");
       sensor_msgs::PointCloud2ConstIterator<float> it_y(msg, "y");
       sensor_msgs::PointCloud2ConstIterator<float> it_z(msg, "z");
@@ -401,14 +433,18 @@ private:
           ++dbg_not_obstacle_height;
         }
       }
-      std::cout << "[lidar][模块4] 遍历结束: 迭代点数=" << point_count << " iter_limit=" << iter_limit
-                << " | 跳过(传感器系非有限)=" << dbg_nan_sensor << " 跳过(head非有限)=" << dbg_nan_head
-                << " 跳过(cloud z窗)=" << dbg_z_cloud_range << " 跳过(地图外)=" << dbg_outside_map
-                << " 跳过(非障碍高度0.1~2)=" << dbg_not_obstacle_height << " | 保留障碍点=" << kept.size()
-                << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块4] 遍历结束: 迭代点数=" << point_count << " iter_limit=" << iter_limit
+                  << " | 跳过(传感器系非有限)=" << dbg_nan_sensor << " 跳过(head非有限)=" << dbg_nan_head
+                  << " 跳过(cloud z窗)=" << dbg_z_cloud_range << " 跳过(地图外)=" << dbg_outside_map
+                  << " 跳过(非障碍高度0.1~2)=" << dbg_not_obstacle_height << " | 保留障碍点=" << kept.size()
+                  << std::endl;
+      }
     } catch (const std::runtime_error& e) {
       // 点云字段异常（如缺少 x/y/z）时节流告警并丢弃本帧，避免刷屏。
-      std::cout << "[lidar][模块4] PointCloud2 迭代异常: " << e.what() << "，return" << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块4] PointCloud2 迭代异常: " << e.what() << "，return" << std::endl;
+      }
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "PointCloud2 iterator error: %s", e.what());
       return;
     }
@@ -416,12 +452,16 @@ private:
     // ============[模块5] 构建并发布过滤后点云（调试可视化）：===========================================================
     // - 输出 frame 固定为 head_init（kFrameId），与规划坐标系一致。
     // - 数据来源于 kept，反映“通过筛选后的障碍相关点”。
-    std::cout << "[lidar][模块5] 组装过滤后 PointCloud2，点数=" << kept.size() << " frame_id=" << kFrameId << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块5] 组装过滤后 PointCloud2，点数=" << kept.size() << " frame_id=" << kFrameId << std::endl;
+    }
     sensor_msgs::msg::PointCloud2 out;
     out.header.stamp = msg.header.stamp;
     if (out.header.stamp.sec == 0 && out.header.stamp.nanosec == 0) {
       out.header.stamp = this->now();
-      std::cout << "[lidar][模块5] 输入 stamp 为 0，已用节点 now() 填充输出 stamp" << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块5] 输入 stamp 为 0，已用节点 now() 填充输出 stamp" << std::endl;
+      }
     }
     out.header.frame_id = kFrameId;
     out.height = 1;
@@ -440,7 +480,9 @@ private:
       *o_y = kept[i][1];
       *o_z = kept[i][2];
     }
-    std::cout << "[lidar][模块5] 填充 xyz 完成，out.width=" << out.width << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块5] 填充 xyz 完成，out.width=" << out.width << std::endl;
+    }
 
     // ============[模块6] 输出状态回写：===========================================================  
     // - 保存并发布本帧过滤后点云；
@@ -449,12 +491,16 @@ private:
     last_cloud_header_ = msg.header;
     last_obs2d_ = std::move(new_obs2d);
     filtered_cloud_ = out;
-    std::cout << "[lidar][模块6] 发布 /lidar_points_filtered ，last_obs2d_.size()=" << last_obs2d_.size()
-              << " have_cloud_=true planner_obstacles_dirty_=true" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块6] 发布 /lidar_points_filtered ，last_obs2d_.size()=" << last_obs2d_.size()
+                << " have_cloud_=true planner_obstacles_dirty_=true" << std::endl;
+    }
     pub_cloud_filtered_->publish(out);
     have_cloud_ = true;
     planner_obstacles_dirty_ = true;
-    std::cout << "[lidar] 本帧处理结束" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar] 本帧处理结束" << std::endl;
+    }
   }
 
   bool resolveCloudTransformToHeadInit(const sensor_msgs::msg::PointCloud2& msg,
@@ -845,6 +891,7 @@ private:
   void dataWaitStatusTick()
   {
     if (have_odom_ && have_pct_path_) return;
+    if (!debug_) return;
     const auto elapsed_s =
       std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - data_wait_start_time_).count();
@@ -876,11 +923,13 @@ private:
     // 显眼提示：当前定时周期触发并正式进入一次重规划流程。
     const double replan_period_ms = 1000.0 / std::max(1.0, replan_freq_);
     ++replan_count_;
-    std::cout << "================ [重规划开始#" << replan_count_ << "] 周期=" << static_cast<int>(std::round(replan_period_ms))
-              << "ms | 位姿触发=" << (trigger_by_pose ? "是" : "否")
-              << " 障碍触发=" << (trigger_by_obs ? "是" : "否")
-              << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
-              << " ================" << std::endl;
+    if (debug_) {
+      std::cout << "================ [重规划开始#" << replan_count_ << "] 周期=" << static_cast<int>(std::round(replan_period_ms))
+                << "ms | 位姿触发=" << (trigger_by_pose ? "是" : "否")
+                << " 障碍触发=" << (trigger_by_obs ? "是" : "否")
+                << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
+                << " ================" << std::endl;
+    }
 
     // 用当前 odom 裁剪全局未完成路径：从最近点开始，前面补上当前位置，
     // 保证局部规划起点始终跟随 /odometry，而不依赖 updateGlobalUnfinished 的调用时机。
@@ -979,7 +1028,7 @@ private:
 
 private:
   // Params
-  bool debug_{true};
+  bool debug_{false};
   double goal_threshold_{0.1};
   double pose_change_thresh_{0.05};
   double obs_change_thresh_{0.1};

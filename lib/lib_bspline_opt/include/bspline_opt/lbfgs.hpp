@@ -68,7 +68,7 @@ namespace lbfgs
         LBFGSERR_MAXIMUMSTEP,
         /** The line-search routine reaches the maximum number of evaluations. */
         LBFGSERR_MAXIMUMLINESEARCH,
-        /** The algorithm routine reaches the maximum number of iterations. */
+        /** 优化迭代次数已达上限（算法达到最大迭代次数）。 */
         LBFGSERR_MAXIMUMITERATION,
         /** Relative width of the interval of uncertainty is at most
         lbfgs_parameter_t::xtol. */
@@ -1429,7 +1429,7 @@ namespace lbfgs
             return "The line-search routine reaches the maximum number of evaluations.";
 
         case LBFGSERR_MAXIMUMITERATION:
-            return "The algorithm routine reaches the maximum number of iterations.";
+            return "优化迭代次数已达上限（算法达到最大迭代次数）。";
 
         case LBFGSERR_WIDTHTOOSMALL:
             return "Relative width of the interval of uncertainty is at most"

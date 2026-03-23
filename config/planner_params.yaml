@@ -9,7 +9,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     odometry_use_best_effort_qos: true  # false 时用 RELIABLE+VOLATILE 订阅里程计（仅当 best_effort 与发布端始终无法匹配时尝试）
 
     # =============== 基础运行开关 ===============
-    debug: true # 是否开启调试模式（true 会输出更多调试信息）
+    debug: false # true：打印点云模块/里程计/路径/等待数据/重规划等 std::cout；false：板端静默
     # 板端/真机务必 false：true 且无 /clock 时 ROS 时钟不前进，tf2 带 timeout 的 lookup 会死循环卡死
     use_sim_time: false
 
