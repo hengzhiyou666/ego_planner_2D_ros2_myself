@@ -38,7 +38,7 @@ public:
   PlannerInterfaceDog();
   ~PlannerInterfaceDog();
 
-  void initParam(double max_vel, double max_acc, double max_jerk);
+  void initParam(double max_vel, double max_acc, double max_jerk, double control_point_interval);
   void initGridMap(double x_size, double y_size, double resolution, const Eigen::Vector2d& origin,
                    double inflate_radius, int astar_pool_size = 100);
   void setPrintfOpenOrNot(bool enabled);

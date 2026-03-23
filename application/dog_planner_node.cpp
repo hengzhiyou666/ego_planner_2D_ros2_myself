@@ -208,7 +208,7 @@ public:
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     // Init planner core
-    planner_.initParam(max_vel_, max_acc_, max_jerk_);
+    planner_.initParam(max_vel_, max_acc_, max_jerk_, control_point_interval_);
     planner_.initGridMap(
       grid_map_size_m_, grid_map_size_m_, grid_map_resolution_,
       Eigen::Vector2d(-grid_map_size_m_ / 2.0, -grid_map_size_m_ / 2.0),

@@ -12,16 +12,21 @@ namespace dog_ego_planner
 PlannerInterfaceDog::PlannerInterfaceDog() = default;
 PlannerInterfaceDog::~PlannerInterfaceDog() = default;
 
-void PlannerInterfaceDog::initParam(double max_vel, double max_acc, double max_jerk)
+void PlannerInterfaceDog::initParam(double max_vel, double max_acc, double max_jerk,
+                                  double control_point_interval)
 {
   pp_.max_vel_ = std::max(max_vel, 1e-6);   // 防呆：避免除零
   pp_.max_acc_ = std::max(max_acc, 1e-6);
   pp_.max_jerk_ = std::max(max_jerk, 1e-6);
   pp_.feasibility_tolerance_ = 0.05;
 
-  // Strictly follow paper configs (2D adaptation):
-  pp_.ctrl_pt_dist = 0.3;        // control_point_interval
-  pp_.planning_horizen_ = 7.0;   // planning_horizon
+  double d = control_point_interval;
+  if (!std::isfinite(d) || d <= 0.0) {
+    d = 0.3;
+  }
+  pp_.ctrl_pt_dist = std::max(d, 1e-4);   // B 样条控制点目标间距（米），与 ROS 参数 control_point_interval 一致
+
+  pp_.planning_horizen_ = 7.0;   // planning_horizon（与节点参数对齐可后续扩展）
 }
 
 void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resolution,

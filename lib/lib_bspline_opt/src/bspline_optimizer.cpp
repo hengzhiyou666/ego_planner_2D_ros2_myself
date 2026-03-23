@@ -981,7 +981,8 @@ bool BsplineOptimizer::rebound_optimize()
     lbfgs::lbfgs_load_default_parameters(&lbfgs_params);
     lbfgs_params.mem_size = 16;
     lbfgs_params.max_iterations = 200;
-    lbfgs_params.g_epsilon = 0.001;
+    // 梯度范数收敛阈值；与 ZJU-FAST-Lab/ego-planner 的 rebound_optimize 一致（refine_optimize 使用 0.001）
+    lbfgs_params.g_epsilon = 0.01;
 
     // 调用 LBFGS 执行反弹优化：使用 Rebound 代价函数，并通过 earlyExit 支持提前终止。
     int result = lbfgs::lbfgs_optimize(variable_num_, q, &final_cost, BsplineOptimizer::costFunctionRebound, NULL, BsplineOptimizer::earlyExit, this, &lbfgs_params);
