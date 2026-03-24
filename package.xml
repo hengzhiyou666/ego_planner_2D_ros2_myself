@@ -17,6 +17,9 @@
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
 
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
   <build_depend>eigen3_cmake_module</build_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

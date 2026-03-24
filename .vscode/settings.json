@@ -9,5 +9,10 @@
         "/heng/livox_ros_driver2_ws/install/livox_ros_driver2/local/lib/python3.10/dist-packages",
         "/opt/ros/humble/lib/python3.10/site-packages",
         "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "cursorpyright.analysis.extraPaths": [
+        "/heng/livox_ros_driver2_ws/install/livox_ros_driver2/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
     ]
 }

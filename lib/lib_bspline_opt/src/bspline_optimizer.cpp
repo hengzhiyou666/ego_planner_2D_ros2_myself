@@ -1021,6 +1021,11 @@ bool BsplineOptimizer::rebound_optimize()
                       << cps_.points.col(3).transpose() << "\n"
                       << cps_.points.col(4).transpose() << std::endl;
             printf("First 3 control points in obstacles! return false, t=%f", t);
+            {
+              const auto opt_end_early = std::chrono::steady_clock::now();
+              last_rebound_optimize_ms_ =
+                std::chrono::duration<double, std::milli>(opt_end_early - opt_start_time).count();
+            }
             return false;
           }
           break;
@@ -1057,8 +1062,7 @@ bool BsplineOptimizer::rebound_optimize()
            (flag_force_return && force_stop_type_ == STOP_FOR_REBOUND && rebound_times < max_rebound_times));
   
   const auto opt_end_time = std::chrono::steady_clock::now();
-  const double opt_elapsed_ms = std::chrono::duration<double, std::milli>(opt_end_time - opt_start_time).count();
-  std::cout << "===== 本次规划消耗时间：" << std::fixed << std::setprecision(1) << opt_elapsed_ms << " ms =====" << std::endl;
+  last_rebound_optimize_ms_ = std::chrono::duration<double, std::milli>(opt_end_time - opt_start_time).count();
   return success;
 }
 

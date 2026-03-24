@@ -38,7 +38,7 @@ public:
   PlannerInterfaceDog();
   ~PlannerInterfaceDog();
 
-  void initParam(double max_vel, double max_acc, double max_jerk);
+  void initParam(double max_vel, double max_acc, double max_jerk, double control_point_interval);
   void initGridMap(double x_size, double y_size, double resolution, const Eigen::Vector2d& origin,
                    double inflate_radius, int astar_pool_size = 100);
   void setPrintfOpenOrNot(bool enabled);
@@ -55,6 +55,9 @@ public:
 
   void getPlannedTraj(std::vector<PathPoint2D>& out_traj_points, double sample_dt = 0.1) const;
   void getLastControlPoints(Eigen::MatrixXd& out_ctrl_pts_2d) const;
+
+  /** 最近一次 rebound 优化墙钟耗时（毫秒），与 BsplineOptimizer 一致。 */
+  double getLastReboundOptimizeWallMs() const;
 
 private:
   bool reboundReplan(const Eigen::Vector3d& start_pt, const Eigen::Vector3d& start_vel,

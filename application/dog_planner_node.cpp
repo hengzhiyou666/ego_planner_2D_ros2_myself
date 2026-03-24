@@ -13,8 +13,12 @@
 #include <Eigen/Dense>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <deque>
+#include <iomanip>
 #include <limits>
+#include <sstream>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -119,6 +123,46 @@ double angleDeg(const Eigen::Vector2d& v1, const Eigen::Vector2d& v2)
   return std::acos(c) * 180.0 / M_PI;
 }
 
+/** 根据「自上次成功规划以来」各定时器周期的统计，生成间隔偏长的主因说明（中文）。 */
+std::string buildInterSuccessGapReasonLine(uint64_t n_cooldown, uint64_t n_nodata, uint64_t n_notrigger,
+                                           uint64_t n_shortpath, uint64_t n_planfail, double replan_period_ms)
+{
+  struct Part
+  {
+    uint64_t n;
+    const char* text;
+  };
+  const Part parts[] = {
+      {n_cooldown, "连续规划失败后的冷却期内跳过"},
+      {n_planfail, "已进入重规划流程但局部规划失败"},
+      {n_notrigger, "未满足重规划触发(位姿/障碍/剩余距离均未触发且已有局部路径)"},
+      {n_nodata, "缺少里程计或全局路径/未完成路径过短"},
+      {n_shortpath, "裁剪后未完成路径过短或前视 horizon 内路径点不足"},
+  };
+  const uint64_t total = n_cooldown + n_nodata + n_notrigger + n_shortpath + n_planfail;
+  if (total == 0) {
+    std::ostringstream oss;
+    oss << "主要为重规划定时器周期(约" << std::fixed << std::setprecision(0) << replan_period_ms
+        << "ms)与触发门控，期间较少进入实际规划";
+    return oss.str();
+  }
+  // 按次数降序取前若干项拼接
+  std::vector<const Part*> order;
+  order.reserve(5);
+  for (const auto& p : parts) {
+    if (p.n > 0) order.push_back(&p);
+  }
+  std::sort(order.begin(), order.end(),
+            [](const Part* a, const Part* b) { return a->n > b->n; });
+  std::ostringstream oss;
+  const size_t kMaxParts = 3;
+  for (size_t i = 0; i < order.size() && i < kMaxParts; ++i) {
+    if (i > 0) oss << "；";
+    oss << order[i]->text << "(" << order[i]->n << "个定时周期)";
+  }
+  return oss.str();
+}
+
 }  // namespace
 
 class DogPlannerNode : public rclcpp::Node
@@ -131,6 +175,9 @@ public:
       rclcpp::NodeOptions().append_parameter_override("use_sim_time", false))
   {
     debug_ = declare_parameter<bool>("debug", true);
+    print_callback_msg_ = declare_parameter<bool>("print_callback_msg", true);
+    print_replan_return_reason_ = declare_parameter<bool>("print_replan_return_reason", false);
+    (void)declare_parameter<bool>("launch_rviz", false);  // launch 专用，见 robot_launch.py
     goal_threshold_ = declare_parameter<double>("goal_threshold", 0.1);
     pose_change_thresh_ = declare_parameter<double>("pose_change_thresh", 0.05);
     obs_change_thresh_ = declare_parameter<double>("obs_change_thresh", 0.1);  // used as quantize res baseline
@@ -158,6 +205,7 @@ public:
     occupancy_publish_freq_ = declare_parameter<double>("occupancy_publish_freq", -1.0);
     self_obstacle_clear_radius_ = declare_parameter<double>("self_obstacle_clear_radius", 0.45);
     cloud_tf_fallback_max_age_ms_ = declare_parameter<int>("cloud_tf_fallback_max_age_ms", 500);
+    cloud_tf_allow_latest_fallback_ = declare_parameter<bool>("cloud_tf_allow_latest_fallback", true);
     global_path_update_interval_s_ = declare_parameter<double>("global_path_update_interval_s", 1.0);
     if_test_pct_path_update_ = declare_parameter<bool>("if_test_pct_path_update", true);
     if_test_pct_path_update_tolerance_ = declare_parameter<double>("if_test_pct_path_update_tolerance", 0.01);
@@ -208,7 +256,7 @@ public:
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     // Init planner core
-    planner_.initParam(max_vel_, max_acc_, max_jerk_);
+    planner_.initParam(max_vel_, max_acc_, max_jerk_, control_point_interval_);
     planner_.initGridMap(
       grid_map_size_m_, grid_map_size_m_, grid_map_resolution_,
       Eigen::Vector2d(-grid_map_size_m_ / 2.0, -grid_map_size_m_ / 2.0),
@@ -248,31 +296,45 @@ private:
   */
   void onOdom(const nav_msgs::msg::Odometry& msg)
   {
-    cout << "进入/Odometry回调函数" << endl;
+    if (print_callback_msg_) {
+      std::cout << "进入/Odometry回调函数" << std::endl;
+    }
     if (!std::isfinite(msg.pose.pose.position.x) || !std::isfinite(msg.pose.pose.position.y)) {
-      std::cout << "收到odom话题，但是/odometry 为空" << std::endl;
+      if (print_callback_msg_) {
+        std::cout << "收到odom话题，但是/odometry 为空" << std::endl;
+      }
       return;  // 无效数据，不进行计算
     }
-    std::cout << "收到odom话题，并且/odometry 不为空，可用来计算" << std::endl;
+    if (print_callback_msg_) {
+      std::cout << "收到odom话题，并且/odometry 不为空，可用来计算" << std::endl;
+    }
     last_odom_ = msg;
     have_odom_ = true;
   }
 
   void autofunction_dealwith_pct_path(const nav_msgs::msg::Path& msg)
   {
-    cout << "进入/pct_path回调函数" << endl;
+    if (print_callback_msg_) {
+      std::cout << "进入/pct_path回调函数" << std::endl;
+    }
     if (msg.poses.empty()) {
-      std::cout << "收到pct话题，但是/pct_path 为空" << std::endl;
+      if (print_callback_msg_) {
+        std::cout << "收到pct话题，但是/pct_path 为空" << std::endl;
+      }
       have_pct_path_ = false;
       return;
     }
     if (if_test_pct_path_update_ && isSamePath(msg, last_pct_path_)) {
-      std::cout << "收到pct话题，并且/pct_path 与上次相同，跳过" << std::endl;
+      if (print_callback_msg_) {
+        std::cout << "收到pct话题，并且/pct_path 与上次相同，跳过" << std::endl;
+      }
       return;
     }
     last_pct_path_ = msg;
     have_pct_path_ = true;
-    std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
+    if (print_callback_msg_) {
+      std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
+    }
     updateGlobalUnfinished();
   }
 
@@ -298,40 +360,60 @@ private:
   //   3) 更新 have_cloud_ / planner_obstacles_dirty_ 状态，触发后续重规划流程
   void autofunction_dealwith_lidar_points(const sensor_msgs::msg::PointCloud2& msg)
   {
-    std::cout << "[lidar] 进入 /lidar_points 回调" << std::endl;
+    if (print_callback_msg_) {
+      std::cout << "[lidar] 进入 /lidar_points 回调" << std::endl;
+    }
     // ============[模块1] 本帧初始化：===========================================================
     // - 记录最新点云 header（保留时间戳/坐标系等元信息，便于后续调试与关联）。
     // - 清空上一帧障碍缓存，确保本次规划只基于当前有效点云结果。
     // - 重置过滤后点云缓存，避免旧数据被误用。
     // 注意：不要在入口处直接清空 last_obs2d_，否则 TF 失败时会把上一帧有效障碍误清空，
     // 触发不必要重规划并加剧规划抖动。改为本地构建成功后再一次性提交。
-    std::cout << "[lidar][模块1] 本帧输入: frame_id=\"" << msg.header.frame_id << "\" stamp=" << msg.header.stamp.sec
-              << "." << msg.header.stamp.nanosec << " width=" << msg.width << " height=" << msg.height
-              << " data_size=" << msg.data.size() << " point_step=" << static_cast<unsigned>(msg.point_step)
-              << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块1] 本帧输入: frame_id=\"" << msg.header.frame_id << "\" stamp=" << msg.header.stamp.sec
+                << "." << msg.header.stamp.nanosec << " width=" << msg.width << " height=" << msg.height
+                << " data_size=" << msg.data.size() << " point_step=" << static_cast<unsigned>(msg.point_step)
+                << std::endl;
+    }
 
     // ============[模块2] 输入有效性快速检查：===========================================================
     // 若消息无点数据，直接返回，避免后续 TF 查询与遍历开销。
     if (msg.data.empty()) 
     {
-      std::cout << "[lidar][模块2] 收到点云但 data 为空，直接 return" << std::endl;
+      if (print_callback_msg_) {
+        std::cout << "[lidar] 收到点云但 data 为空，本帧不可用" << std::endl;
+      }
+      if (debug_) {
+        std::cout << "[lidar][模块2] 收到点云但 data 为空，直接 return" << std::endl;
+      }
       return;
     }
-    std::cout << "[lidar][模块2] 点云 data 非空，继续" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块2] 点云 data 非空，继续" << std::endl;
+    }
 
     // ============[模块3] 坐标系对齐（传感器系 -> head_init）：==========================================
     // - 规划和障碍栅格都工作在 head_init 坐标系，必须先完成统一变换。
     // - resolveCloudTransformToHeadInit 内部会处理变换不可用场景（含最近一次有效变换降级逻辑）。
     // - 若本帧无法获得可用变换，直接丢弃本帧，防止障碍投影到错误位置。
-    std::cout << "[lidar][模块3] 请求 TF: " << (msg.header.frame_id.empty() ? std::string(kFrameId) : msg.header.frame_id)
-              << " -> " << kFrameId << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块3] 请求 TF: " << (msg.header.frame_id.empty() ? std::string(kFrameId) : msg.header.frame_id)
+                << " -> " << kFrameId << std::endl;
+    }
     geometry_msgs::msg::TransformStamped cloud_to_head_tf;
     if (!resolveCloudTransformToHeadInit(msg, cloud_to_head_tf)) {
-      std::cout << "[lidar][模块3] TF 解析失败，丢弃本帧 return" << std::endl;
+      if (print_callback_msg_) {
+        std::cout << "[lidar] TF 变换不可用，本帧点云丢弃" << std::endl;
+      }
+      if (debug_) {
+        std::cout << "[lidar][模块3] TF 解析失败，丢弃本帧 return" << std::endl;
+      }
       return;
     }
-    std::cout << "[lidar][模块3] TF 成功: parent=" << cloud_to_head_tf.header.frame_id
-              << " child=" << cloud_to_head_tf.child_frame_id << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块3] TF 成功: parent=" << cloud_to_head_tf.header.frame_id
+                << " child=" << cloud_to_head_tf.child_frame_id << std::endl;
+    }
 
     // ============[模块4] 点云遍历与筛选：===========================================================
     // 目标：从原始点云中提取“对 2D 规划有意义”的障碍点，并保留可视化点云。
@@ -345,9 +427,11 @@ private:
     const double cur_x = have_odom_ ? last_odom_.pose.pose.position.x : 0.0;
     const double cur_y = have_odom_ ? last_odom_.pose.pose.position.y : 0.0;
     const double map_half = grid_map_size_m_ / 2.0;
-    std::cout << "[lidar][模块4] 参考位置: have_odom=" << (have_odom_ ? "true" : "false") << " cur=(" << cur_x << "," << cur_y
-              << ") map_half=" << map_half << "m  cloud_valid_z=[" << cloud_valid_z_min_ << "," << cloud_valid_z_max_
-              << "]  障碍高度窗=[0.1,2.0]" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块4] 参考位置: have_odom=" << (have_odom_ ? "true" : "false") << " cur=(" << cur_x << "," << cur_y
+                << ") map_half=" << map_half << "m  cloud_valid_z=[" << cloud_valid_z_min_ << "," << cloud_valid_z_max_
+                << "]  障碍高度窗=[0.1,2.0]" << std::endl;
+    }
     std::vector<std::array<float, 3>> kept;
     std::vector<dog_ego_planner::Obstacle2D> new_obs2d;
     // 预留约一半容量，降低动态扩容开销（经验值，避免过度保守）。
@@ -359,7 +443,9 @@ private:
     size_t dbg_outside_map = 0;
     size_t dbg_not_obstacle_height = 0;
     try {
-      std::cout << "[lidar][模块4] 开始遍历点云字段 x/y/z ..." << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块4] 开始遍历点云字段 x/y/z ..." << std::endl;
+      }
       sensor_msgs::PointCloud2ConstIterator<float> it_x(msg, "x");
       sensor_msgs::PointCloud2ConstIterator<float> it_y(msg, "y");
       sensor_msgs::PointCloud2ConstIterator<float> it_z(msg, "z");
@@ -401,14 +487,21 @@ private:
           ++dbg_not_obstacle_height;
         }
       }
-      std::cout << "[lidar][模块4] 遍历结束: 迭代点数=" << point_count << " iter_limit=" << iter_limit
-                << " | 跳过(传感器系非有限)=" << dbg_nan_sensor << " 跳过(head非有限)=" << dbg_nan_head
-                << " 跳过(cloud z窗)=" << dbg_z_cloud_range << " 跳过(地图外)=" << dbg_outside_map
-                << " 跳过(非障碍高度0.1~2)=" << dbg_not_obstacle_height << " | 保留障碍点=" << kept.size()
-                << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块4] 遍历结束: 迭代点数=" << point_count << " iter_limit=" << iter_limit
+                  << " | 跳过(传感器系非有限)=" << dbg_nan_sensor << " 跳过(head非有限)=" << dbg_nan_head
+                  << " 跳过(cloud z窗)=" << dbg_z_cloud_range << " 跳过(地图外)=" << dbg_outside_map
+                  << " 跳过(非障碍高度0.1~2)=" << dbg_not_obstacle_height << " | 保留障碍点=" << kept.size()
+                  << std::endl;
+      }
     } catch (const std::runtime_error& e) {
       // 点云字段异常（如缺少 x/y/z）时节流告警并丢弃本帧，避免刷屏。
-      std::cout << "[lidar][模块4] PointCloud2 迭代异常: " << e.what() << "，return" << std::endl;
+      if (print_callback_msg_) {
+        std::cout << "[lidar] 点云字段异常，本帧不可用: " << e.what() << std::endl;
+      }
+      if (debug_) {
+        std::cout << "[lidar][模块4] PointCloud2 迭代异常: " << e.what() << "，return" << std::endl;
+      }
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "PointCloud2 iterator error: %s", e.what());
       return;
     }
@@ -416,12 +509,16 @@ private:
     // ============[模块5] 构建并发布过滤后点云（调试可视化）：===========================================================
     // - 输出 frame 固定为 head_init（kFrameId），与规划坐标系一致。
     // - 数据来源于 kept，反映“通过筛选后的障碍相关点”。
-    std::cout << "[lidar][模块5] 组装过滤后 PointCloud2，点数=" << kept.size() << " frame_id=" << kFrameId << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块5] 组装过滤后 PointCloud2，点数=" << kept.size() << " frame_id=" << kFrameId << std::endl;
+    }
     sensor_msgs::msg::PointCloud2 out;
     out.header.stamp = msg.header.stamp;
     if (out.header.stamp.sec == 0 && out.header.stamp.nanosec == 0) {
       out.header.stamp = this->now();
-      std::cout << "[lidar][模块5] 输入 stamp 为 0，已用节点 now() 填充输出 stamp" << std::endl;
+      if (debug_) {
+        std::cout << "[lidar][模块5] 输入 stamp 为 0，已用节点 now() 填充输出 stamp" << std::endl;
+      }
     }
     out.header.frame_id = kFrameId;
     out.height = 1;
@@ -440,7 +537,9 @@ private:
       *o_y = kept[i][1];
       *o_z = kept[i][2];
     }
-    std::cout << "[lidar][模块5] 填充 xyz 完成，out.width=" << out.width << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块5] 填充 xyz 完成，out.width=" << out.width << std::endl;
+    }
 
     // ============[模块6] 输出状态回写：===========================================================  
     // - 保存并发布本帧过滤后点云；
@@ -449,12 +548,19 @@ private:
     last_cloud_header_ = msg.header;
     last_obs2d_ = std::move(new_obs2d);
     filtered_cloud_ = out;
-    std::cout << "[lidar][模块6] 发布 /lidar_points_filtered ，last_obs2d_.size()=" << last_obs2d_.size()
-              << " have_cloud_=true planner_obstacles_dirty_=true" << std::endl;
+    if (debug_) {
+      std::cout << "[lidar][模块6] 发布 /lidar_points_filtered ，last_obs2d_.size()=" << last_obs2d_.size()
+                << " have_cloud_=true planner_obstacles_dirty_=true" << std::endl;
+    }
     pub_cloud_filtered_->publish(out);
     have_cloud_ = true;
     planner_obstacles_dirty_ = true;
-    std::cout << "[lidar] 本帧处理结束" << std::endl;
+    if (print_callback_msg_) {
+      std::cout << "[lidar] 收到点云，本帧有效，障碍点数=" << last_obs2d_.size() << std::endl;
+    }
+    if (debug_) {
+      std::cout << "[lidar] 本帧处理结束" << std::endl;
+    }
   }
 
   bool resolveCloudTransformToHeadInit(const sensor_msgs::msg::PointCloud2& msg,
@@ -497,6 +603,22 @@ private:
           "点云TF查找失败（%s -> %s）：%s，检测到TF树断开，禁用历史TF降级并跳过本帧。",
           source_frame.c_str(), kFrameId, ex.what());
         return false;
+      }
+      // 点云 header 时间与 TF 缓冲时间基不一致（驱动/录包/混用 sim 时钟）时，按时间戳查询会
+      // “extrapolation into the past”。tf2 约定 time=0 取最新可用变换，作为次优降级。
+      if (cloud_tf_allow_latest_fallback_) {
+        try {
+          const tf2::Duration timeout = tf2::durationFromSec(static_cast<double>(cloud_tf_timeout_ms_) / 1000.0);
+          tf_out = tf_buffer_->lookupTransform(kFrameId, source_frame, tf2::TimePointZero, timeout);
+          last_valid_cloud_tf_ = tf_out;
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 5000,
+            "点云TF按时间戳查找失败，已改用最新 TF（%s -> %s）。建议统一激光与 /tf 的时间戳；原错误：%s",
+            source_frame.c_str(), kFrameId, ex.what());
+          return true;
+        } catch (const tf2::TransformException& ex_latest) {
+          (void)ex_latest;
+        }
       }
       if (last_valid_cloud_tf_) {
         const rclcpp::Time last_tf_stamp(last_valid_cloud_tf_->header.stamp);
@@ -859,38 +981,101 @@ private:
 
   void replanTick()
   {
-    if (planning_finished_) return;
-    if (!have_odom_ || !have_pct_path_) return;
-    if (last_global_unfinished_pts_.size() < 2) return;
-    const auto steady_now = std::chrono::steady_clock::now();
-    if (steady_now < replan_cooldown_until_) return;
+    if (0)
+    {
+    const auto tick_now = std::chrono::steady_clock::now();
+    if (last_replan_tick_time_ != std::chrono::steady_clock::time_point::min()) {
+      const double elapsed_ms =
+        std::chrono::duration<double, std::milli>(tick_now - last_replan_tick_time_).count();
+      const double tick_hz = (elapsed_ms > 1e-6) ? (1000.0 / elapsed_ms) : 0.0;
+      std::cout << "距离上次进入replanTick，已经过去" << std::fixed << std::setprecision(1) << elapsed_ms
+                << " ms，频率是" << std::setprecision(2) << tick_hz << " Hz" << std::endl;
+    } else {
+      std::cout << "距离上次进入replanTick：首次进入" << std::endl;
+    }
+    last_replan_tick_time_ = tick_now;
+    }
 
+    if (planning_finished_) {
+      printReplanTickExitReason("规划已结束(planning_finished_=true)，本周期不重规划");
+      return;
+    }
+    //std::cout << "111111111111111111111111111111111111111111111111" << std::endl;
+    if (!have_odom_ || !have_pct_path_) {
+      ++gap_skip_no_data_ticks_;
+      printReplanTickExitReason(
+        !have_odom_ && !have_pct_path_ ? "缺少/odometry与全局路径，无法重规划"
+        : !have_odom_ ? "缺少/odometry，无法重规划"
+                      : "缺少全局未完成路径(/pct_path)，无法重规划");
+      return;
+    }
+    //std::cout << "222222222222222222222222222222222222222222222222" << std::endl;
+    if (last_global_unfinished_pts_.size() < 2) {
+      ++gap_skip_short_path_ticks_;
+      printReplanTickExitReason("全局未完成路径点数不足(<2)，无法重规划");
+      return;
+    }
+    //std::cout << "333333333333333333333333333333333333333333333333" << std::endl;
+    const auto steady_now = std::chrono::steady_clock::now();
+    if (steady_now < replan_cooldown_until_) {
+      ++gap_skip_cooldown_ticks_;
+      const int64_t remain_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  replan_cooldown_until_ - steady_now)
+                                  .count();
+      printReplanTickExitReason(
+        std::string("处于连续规划失败后的冷却期，剩余约 ") + std::to_string(remain_ms) + " ms");
+      return;
+    }
+    //std::cout << "444444444444444444444444444444444444444444444444" << std::endl;
+    // 当前位姿（里程计），用于障碍/剩余路径等判断；与 last_plan_pose_ 等快照比较决定是否重规划。
     const Eigen::Vector2d cur = currentPoseXY();
 
+    // 重规划触发三条件（见下方：若三者全为假且已有局部路径则直接 return，不调用 makePlan）：
+    // - 位姿：相对上次规划成功时记录的位置，平面位移超过 pose_change_thresh_（poseChanged）。
+    // - 障碍：点云障碍相对上次规划快照发生变化（obstaclesChanged）。
+    // - 剩余路径：沿当前局部路径从 cur 到终点的剩余弧长 < 4.0m（硬编码），表示接近局部轨迹末端需更新。
     const bool trigger_by_pose = poseChanged();
     const bool trigger_by_obs = obstaclesChanged();
     const bool trigger_by_remaining = (remainingLocalLength(last_local_path_pts_, cur) < 4.0);
 
-    if (!trigger_by_pose && !trigger_by_obs && !trigger_by_remaining && have_local_plan_) return;
+    //std::cout << "555555555555555555555555555555555555555555555555" << std::endl;
+
+    //if (!trigger_by_pose && !trigger_by_obs && !trigger_by_remaining && have_local_plan_) {
+    //  ++gap_skip_no_trigger_ticks_;
+    //  printReplanTickExitReason(
+    //    "位姿/障碍/剩余距离均未触发且已有局部路径，跳过本次重规划");
+    //  return;
+    //}
+    //std::cout << "666666666666666666666666666666666666666666666666" << std::endl;
 
     // 显眼提示：当前定时周期触发并正式进入一次重规划流程。
     const double replan_period_ms = 1000.0 / std::max(1.0, replan_freq_);
     ++replan_count_;
-    std::cout << "================ [重规划开始#" << replan_count_ << "] 周期=" << static_cast<int>(std::round(replan_period_ms))
+    std::cout << "+++++++++++++++++++++++ [第 " << replan_count_ << " 次重规划开始] 周期=" << static_cast<int>(std::round(replan_period_ms))
               << "ms | 位姿触发=" << (trigger_by_pose ? "是" : "否")
               << " 障碍触发=" << (trigger_by_obs ? "是" : "否")
               << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
-              << " ================" << std::endl;
+              << " ++++++++++++++++++++++" << std::endl;
 
     // 用当前 odom 裁剪全局未完成路径：从最近点开始，前面补上当前位置，
     // 保证局部规划起点始终跟随 /odometry，而不依赖 updateGlobalUnfinished 的调用时机。
     const std::vector<Eigen::Vector2d> current_unfinished = buildCurrentUnfinished(cur);
-    if (current_unfinished.size() < 2) return;
+    if (current_unfinished.size() < 2) {
+      ++gap_skip_short_path_ticks_;
+      printReplanTickExitReason("裁剪后未完成路径过短(buildCurrentUnfinished后点数<2)，跳过规划");
+      printPlanningStatsLine("[跳过本次规划]", 0.0, false);
+      return;
+    }
 
     // Build curve1: 7m horizon from current A along unfinished path.
     Eigen::Vector2d temp_goal = current_unfinished.back();
     const std::vector<Eigen::Vector2d> curve1 = takeHorizonCurve1(current_unfinished, planning_horizon_, temp_goal);
-    if (curve1.size() < 4) return;
+    if (curve1.size() < 4) {
+      ++gap_skip_short_path_ticks_;
+      printReplanTickExitReason("前视horizon内路径点不足(takeHorizonCurve1后点数<4)，跳过规划");
+      printPlanningStatsLine("[跳过本次规划]", 0.0, false);
+      return;
+    }
 
     // Control points sampling (paper rule): every 3 dense points, keep key turns.
     const std::vector<size_t> ctrl_idx = sampleControlPointIndices(curve1);
@@ -926,8 +1111,22 @@ private:
     const Eigen::Vector2d start_acc(0.0, 0.0);
     const Eigen::Vector2d goal_vel(0.0, 0.0);
 
+    //=========================重规划入口（即将调用 makePlan）===========================================
+    const auto now_replan_entry = std::chrono::steady_clock::now();
+    if (last_replan_entry_time_ != std::chrono::steady_clock::time_point::min()) {
+      const double elapsed_ms =
+        std::chrono::duration<double, std::milli>(now_replan_entry - last_replan_entry_time_).count();
+      const double entry_hz = (elapsed_ms > 1e-6) ? (1000.0 / elapsed_ms) : 0.0;
+      std::cout << "距离上次达到重规划入口，已过" << std::fixed << std::setprecision(1) << elapsed_ms
+                << " ms，频率为" << std::setprecision(2) << entry_hz << " Hz" << std::endl;
+    } else {
+      std::cout << "距离上次达到重规划入口：首次进入" << std::endl;
+    }
+    last_replan_entry_time_ = now_replan_entry;
+
     const bool ok = planner_.makePlan(start_vel, start_acc, goal_vel);
     if (!ok) {
+      ++gap_plan_fail_ticks_;
       ++consecutive_plan_failures_;
       if (consecutive_plan_failures_ >= std::max(1, max_consecutive_failures_before_cooldown_)) {
         replan_cooldown_until_ =
@@ -944,10 +1143,33 @@ private:
       last_plan_obstacles_ = last_obs2d_;
       // Degrade: publish last local path again.
       pub_local_path_->publish(toPathMsg(last_local_path_pts_));
+      printPlanningStatsLine("[规划失败]", planner_.getLastReboundOptimizeWallMs(), false);
       return;
     }
     consecutive_plan_failures_ = 0;
     replan_cooldown_until_ = std::chrono::steady_clock::time_point::min();
+
+    {
+      const double last_plan_ms = planner_.getLastReboundOptimizeWallMs();
+      const double replan_period_ms = 1000.0 / std::max(1.0, replan_freq_);
+      const std::string reason_this_gap = buildInterSuccessGapReasonLine(
+        gap_skip_cooldown_ticks_, gap_skip_no_data_ticks_, gap_skip_no_trigger_ticks_,
+        gap_skip_short_path_ticks_, gap_plan_fail_ticks_, replan_period_ms);
+      gap_skip_cooldown_ticks_ = 0;
+      gap_skip_no_data_ticks_ = 0;
+      gap_skip_no_trigger_ticks_ = 0;
+      gap_skip_short_path_ticks_ = 0;
+      gap_plan_fail_ticks_ = 0;
+
+      recent_success_gap_reasons_.push_back(reason_this_gap);
+      recent_success_plan_times_.push_back(std::chrono::steady_clock::now());
+      while (recent_success_plan_times_.size() > 10U) {
+        recent_success_plan_times_.pop_front();
+        recent_success_gap_reasons_.pop_front();
+      }
+
+      printPlanningStatsLine("[规划成功]", last_plan_ms, true);
+    }
 
     std::vector<dog_ego_planner::PathPoint2D> traj2d;
     planner_.getPlannedTraj(traj2d, 0.1);
@@ -977,9 +1199,53 @@ private:
     last_plan_obstacles_ = last_obs2d_;
   }
 
+  /** print_replan_return_reason_ 为 true 时打印：距上次 replanTick 与距上次 makePlan 入口之间各次提前 return 的原因。 */
+  void printReplanTickExitReason(const std::string& msg) const
+  {
+    if (!print_replan_return_reason_) return;
+    std::cout << "[replanTick] 退出原因：" << msg << std::endl;
+  }
+
+  /** bracket_tag 示例 "[规划成功]" / "[规划失败]" / "[跳过本次规划]" */
+  void printPlanningStatsLine(const std::string& bracket_tag, double last_plan_ms, bool print_gap_reason_line)
+  {
+    double success_freq_hz = 0.0;
+    if (recent_success_plan_times_.size() >= 2U) {
+      const double dt_s = std::chrono::duration<double>(
+                             recent_success_plan_times_.back() - recent_success_plan_times_.front())
+                             .count();
+      if (dt_s > 1e-12) {
+        success_freq_hz =
+          static_cast<double>(recent_success_plan_times_.size() - 1U) / dt_s;
+      }
+    }
+    double max_inter_success_gap_ms = 0.0;
+    size_t max_gap_end_idx = 0;
+    if (recent_success_plan_times_.size() >= 2U) {
+      for (size_t i = 0; i + 1 < recent_success_plan_times_.size(); ++i) {
+        const double gap_ms = std::chrono::duration<double, std::milli>(
+                                recent_success_plan_times_[i + 1] - recent_success_plan_times_[i])
+                                .count();
+        if (gap_ms >= max_inter_success_gap_ms) {
+          max_inter_success_gap_ms = gap_ms;
+          max_gap_end_idx = i + 1;
+        }
+      }
+    }
+    std::cout << "===== " << bracket_tag << "本次规划消耗时间：" << std::fixed << std::setprecision(1) << last_plan_ms
+              << " ms ，最近10次成功规划频率为" << std::setprecision(2) << success_freq_hz << " Hz，最久的时间差为"
+              << std::setprecision(1) << max_inter_success_gap_ms << " ms=====" << std::endl;
+    if (print_gap_reason_line && recent_success_plan_times_.size() >= 2U && max_gap_end_idx < recent_success_gap_reasons_.size()) {
+      std::cout << "======时间差" << std::setprecision(1) << max_inter_success_gap_ms
+                << "ms的主要原因为：" << recent_success_gap_reasons_[max_gap_end_idx] << "=======" << std::endl;
+    }
+  }
+
 private:
   // Params
   bool debug_{true};
+  bool print_callback_msg_{true};
+  bool print_replan_return_reason_{false};
   double goal_threshold_{0.1};
   double pose_change_thresh_{0.05};
   double obs_change_thresh_{0.1};
@@ -1004,6 +1270,7 @@ private:
   double occupancy_publish_freq_{-1.0};
   double self_obstacle_clear_radius_{0.45};
   int cloud_tf_fallback_max_age_ms_{500};
+  bool cloud_tf_allow_latest_fallback_{true};
   double global_path_update_interval_s_{1.0};
   bool if_test_pct_path_update_{true};
   double if_test_pct_path_update_tolerance_{0.01};
@@ -1049,7 +1316,23 @@ private:
   std::optional<Eigen::Vector2d> last_plan_pose_;
   std::optional<std::vector<dog_ego_planner::Obstacle2D>> last_plan_obstacles_;
   int consecutive_plan_failures_{0};
+  /** 自上次成功规划以来，各早退/失败原因在定时器周期上的计数（用于解释间隔偏长）。 */
+  uint64_t gap_skip_cooldown_ticks_{0};
+  uint64_t gap_skip_no_data_ticks_{0};
+  uint64_t gap_skip_no_trigger_ticks_{0};
+  uint64_t gap_skip_short_path_ticks_{0};
+  uint64_t gap_plan_fail_ticks_{0};
+  /** 最近成功规划时刻（steady_clock），最多保留 10 个；与 recent_success_gap_reasons_ 对齐。 */
+  std::deque<std::chrono::steady_clock::time_point> recent_success_plan_times_;
+  /** recent_success_gap_reasons_[k]：第 k 次成功相对第 k-1 次成功之间间隔的主因说明（k>=0）。 */
+  std::deque<std::string> recent_success_gap_reasons_;
   std::chrono::steady_clock::time_point replan_cooldown_until_{
+    std::chrono::steady_clock::time_point::min()};
+  /** 上一次进入 replanTick 的时刻（与定时器周期一致，用于打印 tick 间隔）。 */
+  std::chrono::steady_clock::time_point last_replan_tick_time_{
+    std::chrono::steady_clock::time_point::min()};
+  /** 上一次执行 makePlan 之前「重规划入口」时刻，用于打印入口间隔与等效频率。 */
+  std::chrono::steady_clock::time_point last_replan_entry_time_{
     std::chrono::steady_clock::time_point::min()};
   std::chrono::steady_clock::time_point last_occupancy_publish_time_{
     std::chrono::steady_clock::time_point::min()};

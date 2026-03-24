@@ -87,6 +87,9 @@ namespace ego_planner
 
     inline int getOrder(void) { return order_; }
 
+    /** 最近一次 rebound_optimize() 墙钟耗时（毫秒），供上层统计/打印。 */
+    double getLastReboundOptimizeWallMs() const { return last_rebound_optimize_ms_; }
+
   private:
     shared_ptr<GridMap2D> grid_map_;
 
@@ -122,6 +125,7 @@ namespace ego_planner
     bool printf_open_or_not_{true};
     int max_rebound_retries_{5};
 
+    double last_rebound_optimize_ms_{0.0};
 
     int a;
     //
