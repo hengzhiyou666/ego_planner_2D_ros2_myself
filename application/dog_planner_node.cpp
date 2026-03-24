@@ -177,6 +177,8 @@ public:
     debug_ = declare_parameter<bool>("debug", true);
     print_callback_msg_ = declare_parameter<bool>("print_callback_msg", true);
     print_replan_return_reason_ = declare_parameter<bool>("print_replan_return_reason", false);
+    control_if_test_environment_changing_ =
+      declare_parameter<bool>("control_if_test_environment_changing", true);
     (void)declare_parameter<bool>("launch_rviz", false);  // launch 专用，见 robot_launch.py
     goal_threshold_ = declare_parameter<double>("goal_threshold", 0.1);
     pose_change_thresh_ = declare_parameter<double>("pose_change_thresh", 0.05);
@@ -1040,12 +1042,14 @@ private:
 
     //std::cout << "555555555555555555555555555555555555555555555555" << std::endl;
 
-    //if (!trigger_by_pose && !trigger_by_obs && !trigger_by_remaining && have_local_plan_) {
-    //  ++gap_skip_no_trigger_ticks_;
-    //  printReplanTickExitReason(
-    //    "位姿/障碍/剩余距离均未触发且已有局部路径，跳过本次重规划");
-    //  return;
-    //}
+    if (control_if_test_environment_changing_) {
+      if (!trigger_by_pose && !trigger_by_obs && !trigger_by_remaining && have_local_plan_) {
+        ++gap_skip_no_trigger_ticks_;
+        printReplanTickExitReason(
+          "位姿/障碍/剩余距离均未触发且已有局部路径，跳过本次重规划");
+        return;
+      }
+    }
     //std::cout << "666666666666666666666666666666666666666666666666" << std::endl;
 
     // 显眼提示：当前定时周期触发并正式进入一次重规划流程。
@@ -1246,6 +1250,8 @@ private:
   bool debug_{true};
   bool print_callback_msg_{true};
   bool print_replan_return_reason_{false};
+  /** true：无触发且已有局部路径时跳过本次重规划；false：不执行该早退。 */
+  bool control_if_test_environment_changing_{true};
   double goal_threshold_{0.1};
   double pose_change_thresh_{0.05};
   double obs_change_thresh_{0.1};

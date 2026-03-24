@@ -30,6 +30,8 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     goal_threshold: 0.1 # 到达目标点判定阈值（单位：米）
     pose_change_thresh: 0.05 # 位姿变化触发重规划阈值（单位：米）
     obs_change_thresh: 0.1 # 障碍变化触发重规划阈值（单位：米）
+    # true：当位姿/障碍/剩余距离均未触发且已有局部路径时，跳过本次重规划（省算力）；false：不执行该判断，继续走 makePlan
+    control_if_test_environment_changing: true
     replan_freq: 10.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
 
     # =============== 轨迹与几何参数 ===============
