@@ -214,6 +214,8 @@ public:
     replan_failure_cooldown_ms_ = declare_parameter<int>("replan_failure_cooldown_ms", 500);
     max_consecutive_failures_before_cooldown_ =
       declare_parameter<int>("max_consecutive_failures_before_cooldown", 3);
+    if_continuously_plan_failed_time_ =
+      declare_parameter<double>("if_continuously_plan_failed_time", 1.0);
 
     topic_odom_ = declare_parameter<std::string>("topic_odom", "/odometry");
     topic_pct_path_ = declare_parameter<std::string>("topic_pct_path", "/pct_path");
@@ -850,6 +852,12 @@ private:
     return idx;
   }
 
+  /** 原地停留：重复当前平面位置，便于下游收到带新时间戳的非空 Path。 */
+  static std::vector<Eigen::Vector2d> standStillLocalPathXY(const Eigen::Vector2d& cur)
+  {
+    return {cur, cur};
+  }
+
   nav_msgs::msg::Path toPathMsg(const std::vector<Eigen::Vector2d>& pts) const
   {
     nav_msgs::msg::Path msg;
@@ -1132,6 +1140,15 @@ private:
     if (!ok) {
       ++gap_plan_fail_ticks_;
       ++consecutive_plan_failures_;
+      if (continuous_plan_fail_start_ == std::chrono::steady_clock::time_point::min()) {
+        continuous_plan_fail_start_ = steady_now;
+      }
+      const double fail_streak_sec =
+        std::chrono::duration<double>(steady_now - continuous_plan_fail_start_).count();
+      const bool force_stand_still =
+        (if_continuously_plan_failed_time_ > 0.0 &&
+         fail_streak_sec >= if_continuously_plan_failed_time_);
+
       if (consecutive_plan_failures_ >= std::max(1, max_consecutive_failures_before_cooldown_)) {
         replan_cooldown_until_ =
           steady_now + std::chrono::milliseconds(std::max(0, replan_failure_cooldown_ms_));
@@ -1141,16 +1158,28 @@ private:
           max_consecutive_failures_before_cooldown_, replan_failure_cooldown_ms_);
         consecutive_plan_failures_ = 0;
       }
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Local planning failed, reuse last local path.");
+      if (force_stand_still) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 1000,
+          "Local planning failed for >= %.2fs: publishing stand-still local path at current pose.",
+          if_continuously_plan_failed_time_);
+      } else {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Local planning failed, reuse last local path.");
+      }
       // 失败也记录一次当前状态快照，避免同一状态在高频定时器下被无意义重复触发。
       last_plan_pose_ = cur;
       last_plan_obstacles_ = last_obs2d_;
-      // Degrade: publish last local path again.
-      pub_local_path_->publish(toPathMsg(last_local_path_pts_));
+      if (force_stand_still) {
+        last_local_path_pts_ = standStillLocalPathXY(cur);
+        pub_local_path_->publish(toPathMsg(last_local_path_pts_));
+      } else {
+        pub_local_path_->publish(toPathMsg(last_local_path_pts_));
+      }
       printPlanningStatsLine("[规划失败]", planner_.getLastReboundOptimizeWallMs(), false);
       return;
     }
     consecutive_plan_failures_ = 0;
+    continuous_plan_fail_start_ = std::chrono::steady_clock::time_point::min();
     replan_cooldown_until_ = std::chrono::steady_clock::time_point::min();
 
     {
@@ -1282,6 +1311,8 @@ private:
   double if_test_pct_path_update_tolerance_{0.01};
   int replan_failure_cooldown_ms_{500};
   int max_consecutive_failures_before_cooldown_{3};
+  /** 连续 makePlan 失败墙钟时间（秒）达到该值后发布原地停留路径；<=0 关闭。 */
+  double if_continuously_plan_failed_time_{1.0};
   std::string topic_odom_{"/odometry"};
   std::string topic_pct_path_{"/pct_path"};
   std::string topic_lidar_{"/lidar_points"};
@@ -1322,6 +1353,9 @@ private:
   std::optional<Eigen::Vector2d> last_plan_pose_;
   std::optional<std::vector<dog_ego_planner::Obstacle2D>> last_plan_obstacles_;
   int consecutive_plan_failures_{0};
+  /** 当前连续 makePlan 失败 streak 的起始时刻；成功时置 min。 */
+  std::chrono::steady_clock::time_point continuous_plan_fail_start_{
+    std::chrono::steady_clock::time_point::min()};
   /** 自上次成功规划以来，各早退/失败原因在定时器周期上的计数（用于解释间隔偏长）。 */
   uint64_t gap_skip_cooldown_ticks_{0};
   uint64_t gap_skip_no_data_ticks_{0};

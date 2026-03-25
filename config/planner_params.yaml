@@ -36,7 +36,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
 
     # =============== 轨迹与几何参数 ===============
     planning_horizon: 7.0 # 局部规划前视距离（单位：米）
-    control_point_interval: 0.5 # 相邻 B 样条控制点期望弧长间距（米），传入 PlannerInterfaceDog::pp_.ctrl_pt_dist，影响初始 ts
+    control_point_interval: 0.3 # 相邻 B 样条控制点期望弧长间距（米），传入 PlannerInterfaceDog::pp_.ctrl_pt_dist，影响初始 ts
     local_traj_duration: 1.0 # 单段局部轨迹时长（当前版本仅保留参数，尚未在dog_planner_node中实际使用）
 
     # =============== 运动学约束 ===============
@@ -46,13 +46,13 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
 
     # =============== 优化器日志与重试控制 ===============
     printfOpenOrNot: false # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
-    max_rebound_retries: 10 # 反弹优化被取消时的最大重试次数（现场止血建议 1~2，避免单次重规划卡很久）
+    max_rebound_retries: 5 # 反弹优化被取消时的最大重试次数（现场止血建议 1~2，避免单次重规划卡很久）
 
     # =============== 栅格地图参数 ===============
     grid_map_size_m: 20.0 # 栅格地图边长（米）；以机器人为中心的正方形，原来200m太大导致400万格拖慢全局
     grid_map_resolution: 0.1 # 栅格分辨率（米/格）；40m/0.1=400格 → 16万格（比原来400万格快25倍）
-    grid_inflate_radius: 0.20 # 障碍物膨胀半径（米）
-    astar_pool_size: 70 # A* 栅格池边长（板端内存紧张时可改为 50 或 60）
+    grid_inflate_radius: 0.30 # 障碍物膨胀半径（米）
+    astar_pool_size: 100 # A* 栅格池边长（板端内存紧张时可改为 50 或 60）
     occupancy_publish_freq: -1.0 # OccupancyGrid发布频率（Hz）；-1表示跟随障碍更新频率（即每次更新都发布），设为2.0则最多2Hz
 
     # =============== 点云TF转换与防呆过滤（统一到head_init） ===============
@@ -64,8 +64,10 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     cloud_valid_z_min: 0.1 # 点云转换到head_init后，z轴有效最小值（单位：米）
     cloud_valid_z_max: 2.0 # 点云转换到head_init后，z轴有效最大值（单位：米）
     self_obstacle_clear_radius: 0.2 # 规划输入中剔除机器人自身附近障碍半径（米），避免起点被自体/近场噪声占据
-    cloud_tf_fallback_max_age_ms: 600 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
+    cloud_tf_fallback_max_age_ms: 100 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
 
     # =============== 失败退避（防重规划风暴） ===============
     max_consecutive_failures_before_cooldown: 3 # 连续规划失败达到该次数后，进入冷却
-    replan_failure_cooldown_ms: 100 # 冷却时长（毫秒），冷却期内跳过重规划
+    replan_failure_cooldown_ms: 200 # 冷却时长（毫秒），冷却期内跳过重规划
+    # 自首次 makePlan 失败起累计墙钟时间（秒），达到后每次失败发布「当前位姿原地停留」局部路径；重规划仍照常执行，成功则恢复运动；<=0 表示关闭该行为
+    if_continuously_plan_failed_time: 1.0
