@@ -6,19 +6,19 @@
 namespace ego_planner
 {
 
-void BsplineOptimizer::setParam()
+void BsplineOptimizer::setParam(double max_vel, double max_acc, double dist0)
 {
 
-    lambda1_ = 12.0;    // 平滑 - 关键
-    lambda2_ = 1.0;     // 碰撞
+    lambda1_ = 10.0;    // 平滑
+    lambda2_ = 5.0;     // 碰撞（原1.0太低，平滑项完全主导导致避障不足）
     lambda3_ = 3.0;     // feasibility
     lambda4_ = 1.0;
     lambda5_ = 0.1;
 
-    dist0_   = 0.6;
+    dist0_   = std::max(dist0, 0.05);
 
-    max_vel_ = 1.0;
-    max_acc_ = 0.5;
+    max_vel_ = std::max(max_vel, 1e-6);
+    max_acc_ = std::max(max_acc, 1e-6);
 
     order_   = 3;
 
@@ -961,7 +961,7 @@ bool BsplineOptimizer::rebound_optimize()
   int restart_nums = 0, rebound_times = 0;
   bool flag_force_return, flag_occ, success;
   new_lambda2_ = lambda2_;
-  constexpr int MAX_RESART_NUMS_SET = 3;
+  constexpr int MAX_RESART_NUMS_SET = 5;
   const int max_rebound_times = (max_rebound_retries_ < 0) ? 0 : max_rebound_retries_;
   const auto opt_start_time = std::chrono::steady_clock::now();
   std::cout << "start optimze" << std::endl;

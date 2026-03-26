@@ -54,7 +54,7 @@ namespace ego_planner
 
     /* main API */
     void setEnvironment(const shared_ptr<GridMap2D> &env);
-    void setParam();
+    void setParam(double max_vel = 1.0, double max_acc = 2.0, double dist0 = 0.3);
     void setPrintfOpenOrNot(bool enabled);
     void setMaxReboundRetries(int max_retries);
     Eigen::MatrixXd BsplineOptimizeTraj(const Eigen::MatrixXd &points, const double &ts,

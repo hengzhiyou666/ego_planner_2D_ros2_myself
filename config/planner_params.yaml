@@ -20,7 +20,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     use_sim_time: true
 
     # =============== 全局路径更新 ===============
-    global_path_update_interval_s: 1.0 # 定时器周期（秒），每隔该时间根据 /pct_path 和当前 /odometry 重新计算全局未完成路径；0 或负值表示禁用定时器
+    global_path_update_interval_s: 2.0 # 定时器周期（秒），每隔该时间根据 /pct_path 和当前 /odometry 重新计算全局未完成路径；0 或负值表示禁用定时器
 
     # =============== 全局路径去重 ===============
     if_test_pct_path_update: true # 是否检测本次pct_path与上次是否相同；true=相同则跳过，false=每次都处理
@@ -35,13 +35,13 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     replan_freq: 10.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
 
     # =============== 轨迹与几何参数 ===============
-    planning_horizon: 7.0 # 局部规划前视距离（单位：米）
+    planning_horizon: 14.0 # 局部规划前视距离（单位：米）
     control_point_interval: 0.3 # 相邻 B 样条控制点期望弧长间距（米），传入 PlannerInterfaceDog::pp_.ctrl_pt_dist，影响初始 ts
     local_traj_duration: 1.0 # 单段局部轨迹时长（当前版本仅保留参数，尚未在dog_planner_node中实际使用）
 
     # =============== 运动学约束 ===============
     max_vel: 1.0 # 最大速度约束（单位：米/秒）
-    max_acc: 2.0 # 最大加速度约束（单位：米/秒^2）
+    max_acc: 1.5 # 最大加速度约束（单位：米/秒^2）；四足机器狗加速能力有限，原值2.0偏大
     max_jerk: 5.0 # 最大加加速度约束（单位：米/秒^3）
 
     # =============== 优化器日志与重试控制 ===============
@@ -51,7 +51,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     # =============== 栅格地图参数 ===============
     grid_map_size_m: 20.0 # 栅格地图边长（米）；以机器人为中心的正方形，原来200m太大导致400万格拖慢全局
     grid_map_resolution: 0.1 # 栅格分辨率（米/格）；40m/0.1=400格 → 16万格（比原来400万格快25倍）
-    grid_inflate_radius: 0.30 # 障碍物膨胀半径（米）
+    grid_inflate_radius: 0.45 # 障碍物膨胀半径（米）；机器狗外接圆半径约0.40m，加安全余量
     astar_pool_size: 100 # A* 栅格池边长（板端内存紧张时可改为 50 或 60）
     occupancy_publish_freq: -1.0 # OccupancyGrid发布频率（Hz）；-1表示跟随障碍更新频率（即每次更新都发布），设为2.0则最多2Hz
 
@@ -63,11 +63,11 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     cloud_valid_y_abs_max: 20.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
     cloud_valid_z_min: 0.1 # 点云转换到head_init后，z轴有效最小值（单位：米）
     cloud_valid_z_max: 2.0 # 点云转换到head_init后，z轴有效最大值（单位：米）
-    self_obstacle_clear_radius: 0.2 # 规划输入中剔除机器人自身附近障碍半径（米），避免起点被自体/近场噪声占据
+    self_obstacle_clear_radius: 0.45 # 规划输入中剔除机器人自身附近障碍半径（米）；机器狗对角线约0.40m，需覆盖自身
     cloud_tf_fallback_max_age_ms: 100 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
 
     # =============== 失败退避（防重规划风暴） ===============
     max_consecutive_failures_before_cooldown: 3 # 连续规划失败达到该次数后，进入冷却
     replan_failure_cooldown_ms: 200 # 冷却时长（毫秒），冷却期内跳过重规划
     # 自首次 makePlan 失败起累计墙钟时间（秒），达到后每次失败发布「当前位姿原地停留」局部路径；重规划仍照常执行，成功则恢复运动；<=0 表示关闭该行为
-    if_continuously_plan_failed_time: 1.0
+    if_continuously_plan_failed_time: 2.0

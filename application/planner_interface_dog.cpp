@@ -38,7 +38,7 @@ void PlannerInterfaceDog::initGridMap(double x_size, double y_size, double resol
   std::cerr << "[initGridMap] 1/5 创建 BsplineOptimizer..." << std::endl;
   optimizer_.reset(new ego_planner::BsplineOptimizer);
   std::cerr << "[initGridMap] 2/5 setParam/setEnv..." << std::endl;
-  optimizer_->setParam();
+  optimizer_->setParam(pp_.max_vel_, pp_.max_acc_, inflate_radius);
   optimizer_->setPrintfOpenOrNot(printf_open_or_not_);
   optimizer_->setMaxReboundRetries(max_rebound_retries_);
   optimizer_->setEnvironment(grid_map_);
