@@ -339,6 +339,9 @@ private:
     }
     last_pct_path_ = msg;
     have_pct_path_ = true;
+    // 新路径到达时，按需求将 b 点重置到 pct_path 起点。
+    last_b_idx_on_pct_ = 0;
+    have_last_b_idx_on_pct_ = true;
     if (print_callback_msg_) {
       std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
     }
@@ -707,7 +710,43 @@ private:
     if (pct_pts.size() < 2) return;
 
     const Eigen::Vector2d A = currentPoseXY();
-    const size_t idxB = closestIndex(pct_pts, A);
+
+    // b 点搜索窗口：
+    // - 启动或新 /pct_path 后：b 从起点开始；
+    // - 后续更新：仅在 [上次 b, 上次 b + global_path_update_interval_s_*1.5m] 这一段找离 A 最近的 b。
+    size_t search_start_idx = 0;
+    if (have_last_b_idx_on_pct_ && last_b_idx_on_pct_ < pct_pts.size()) {
+      search_start_idx = last_b_idx_on_pct_;
+    }
+    const double max_forward_search_len =
+      std::max(0.0, global_path_update_interval_s_) * 5;  // 速度上限 1.5m/s
+
+    size_t search_end_idx = search_start_idx;
+    double acc_forward_len = 0.0;
+    constexpr size_t kMaxForwardSearchIter = 100000;
+    for (size_t i = search_start_idx; i + 1 < pct_pts.size() &&
+                                    (i - search_start_idx) < kMaxForwardSearchIter; ++i) {
+      const double seg = (pct_pts[i + 1] - pct_pts[i]).norm();
+      if (acc_forward_len + seg >= max_forward_search_len) {
+        search_end_idx = i + 1;
+        break;
+      }
+      acc_forward_len += seg;
+      search_end_idx = i + 1;
+    }
+
+    size_t idxB = search_start_idx;
+    double best_d2 = std::numeric_limits<double>::infinity();
+    for (size_t i = search_start_idx; i <= search_end_idx; ++i) {
+      const double d2 = (pct_pts[i] - A).squaredNorm();
+      if (d2 < best_d2) {
+        best_d2 = d2;
+        idxB = i;
+      }
+    }
+    last_b_idx_on_pct_ = idxB;
+    have_last_b_idx_on_pct_ = true;
+
     const double AB = dist2d(A, pct_pts[idxB]);
 
     // Find C by moving forward from B with length AB along pct_path.
@@ -1380,6 +1419,8 @@ private:
   uint64_t replan_count_{0};
   std::vector<Eigen::Vector2d> last_global_unfinished_pts_;
   std::vector<Eigen::Vector2d> last_local_path_pts_;
+  size_t last_b_idx_on_pct_{0};
+  bool have_last_b_idx_on_pct_{false};
   std::optional<Eigen::Vector2d> last_plan_pose_;
   std::optional<std::vector<dog_ego_planner::Obstacle2D>> last_plan_obstacles_;
   int consecutive_plan_failures_{0};
