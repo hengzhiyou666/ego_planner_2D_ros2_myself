@@ -185,6 +185,9 @@ public:
     obs_change_thresh_ = declare_parameter<double>("obs_change_thresh", 0.1);  // used as quantize res baseline
 
     planning_horizon_ = declare_parameter<double>("planning_horizon", 7.0);
+    local_path_max_m_ = declare_parameter<double>("local_path_max_m", 6.0);
+    local_path_min_m_ = declare_parameter<double>("local_path_min_m", 1.0);
+    local_path_step_m_ = declare_parameter<double>("step", -1.0);
     control_point_interval_ = declare_parameter<double>("control_point_interval", 0.3);
     replan_freq_ = declare_parameter<double>("replan_freq", 50.0);
     local_traj_duration_ = declare_parameter<double>("local_traj_duration", 1.0);
@@ -1079,25 +1082,6 @@ private:
       return;
     }
 
-    // Build curve1: 7m horizon from current A along unfinished path.
-    Eigen::Vector2d temp_goal = current_unfinished.back();
-    const std::vector<Eigen::Vector2d> curve1 = takeHorizonCurve1(current_unfinished, planning_horizon_, temp_goal);
-    if (curve1.size() < 4) {
-      ++gap_skip_short_path_ticks_;
-      printReplanTickExitReason("前视horizon内路径点不足(takeHorizonCurve1后点数<4)，跳过规划");
-      printPlanningStatsLine("[跳过本次规划]", 0.0, false);
-      return;
-    }
-
-    // Control points sampling (paper rule): every 3 dense points, keep key turns.
-    const std::vector<size_t> ctrl_idx = sampleControlPointIndices(curve1);
-    std::vector<dog_ego_planner::PathPoint2D> ctrl_pts;
-    ctrl_pts.reserve(ctrl_idx.size());
-    const size_t curve1_size = curve1.size();
-    for (auto i : ctrl_idx) {
-      if (i < curve1_size) ctrl_pts.push_back({curve1[i].x(), curve1[i].y()});  // 防呆：避免越界
-    }
-
     // Feed planner.
     planner_.setCurrentPose(dog_ego_planner::PathPoint2D{cur.x(), cur.y()});
     // 仅在点云更新后重建障碍地图，避免位姿触发时重复做重活导致CPU飙高。
@@ -1117,8 +1101,6 @@ private:
       if (should_publish_occ) publishOccupancyMap();
       planner_obstacles_dirty_ = false;
     }
-    planner_.setReferencePath(ctrl_pts);
-
     const Eigen::Vector2d start_vel = currentVelXY();
     const Eigen::Vector2d start_acc(0.0, 0.0);
     const Eigen::Vector2d goal_vel(0.0, 0.0);
@@ -1136,8 +1118,53 @@ private:
     }
     last_replan_entry_time_ = now_replan_entry;
 
-    const bool ok = planner_.makePlan(start_vel, start_acc, goal_vel);
+    const double configured_max_m = (local_path_max_m_ > 0.0) ? local_path_max_m_ : planning_horizon_;
+    const double configured_min_m = (local_path_min_m_ > 0.0) ? local_path_min_m_ : 1.0;
+    const double max_m = std::max(configured_max_m, configured_min_m);
+    const double min_m = std::min(configured_max_m, configured_min_m);
+    const double step_abs = std::max(std::abs(local_path_step_m_), 1e-6);
+    const double step_effective = step_abs;
+
+    bool ok = false;
+    Eigen::Vector2d temp_goal = current_unfinished.back();
+    constexpr int kMaxDynamicTry = 200;
+    int dynamic_try_count = 0;
+    for (double horizon_m = max_m;
+         horizon_m >= min_m - 1e-9 && dynamic_try_count < kMaxDynamicTry;
+         horizon_m -= step_effective, ++dynamic_try_count)
+    {
+      Eigen::Vector2d temp_goal_this_try = current_unfinished.back();
+      const std::vector<Eigen::Vector2d> curve1 =
+        takeHorizonCurve1(current_unfinished, horizon_m, temp_goal_this_try);
+      if (curve1.size() < 4) {
+        std::cout << "本次" << std::fixed << std::setprecision(1) << horizon_m
+                  << "m规划失败（前视路径点不足）" << std::endl;
+        continue;
+      }
+
+      // Control points sampling (paper rule): every 3 dense points, keep key turns.
+      const std::vector<size_t> ctrl_idx = sampleControlPointIndices(curve1);
+      std::vector<dog_ego_planner::PathPoint2D> ctrl_pts;
+      ctrl_pts.reserve(ctrl_idx.size());
+      const size_t curve1_size = curve1.size();
+      for (auto i : ctrl_idx) {
+        if (i < curve1_size) ctrl_pts.push_back({curve1[i].x(), curve1[i].y()});  // 防呆：避免越界
+      }
+      planner_.setReferencePath(ctrl_pts);
+
+      ok = planner_.makePlan(start_vel, start_acc, goal_vel);
+      if (ok) {
+        temp_goal = temp_goal_this_try;
+        std::cout << "本次" << std::fixed << std::setprecision(1) << horizon_m
+                  << "m规划成功" << std::endl;
+        break;
+      }
+      std::cout << "本次" << std::fixed << std::setprecision(1) << horizon_m
+                << "m规划失败" << std::endl;
+    }
+
     if (!ok) {
+      ++gap_skip_short_path_ticks_;
       ++gap_plan_fail_ticks_;
       ++consecutive_plan_failures_;
       if (continuous_plan_fail_start_ == std::chrono::steady_clock::time_point::min()) {
@@ -1285,6 +1312,9 @@ private:
   double pose_change_thresh_{0.05};
   double obs_change_thresh_{0.1};
   double planning_horizon_{7.0};
+  double local_path_max_m_{6.0};
+  double local_path_min_m_{1.0};
+  double local_path_step_m_{-1.0};
   double control_point_interval_{0.3};
   double replan_freq_{50.0};
   double local_traj_duration_{1.0};

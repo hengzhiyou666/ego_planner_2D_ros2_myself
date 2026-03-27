@@ -35,7 +35,10 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     replan_freq: 10.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
 
     # =============== 轨迹与几何参数 ===============
-    planning_horizon: 14.0 # 局部规划前视距离（单位：米）
+    planning_horizon: 6.0 # 兼容保留参数；当 local_path_max_m 非法(<=0)时回退使用
+    local_path_max_m: 6.0 # 单次重规划内首次尝试的局部路径长度（米）
+    local_path_min_m: 1.0 # 单次重规划内最短尝试长度（米）
+    step: -1.0 # 单次重规划内长度递减步长；配置为 -1.0 表示 6->5->4...->1
     control_point_interval: 0.3 # 相邻 B 样条控制点期望弧长间距（米），传入 PlannerInterfaceDog::pp_.ctrl_pt_dist，影响初始 ts
     local_traj_duration: 1.0 # 单段局部轨迹时长（当前版本仅保留参数，尚未在dog_planner_node中实际使用）
 
