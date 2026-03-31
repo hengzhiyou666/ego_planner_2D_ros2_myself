@@ -64,8 +64,8 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     cloud_tf_allow_latest_fallback: true
     cloud_valid_x_abs_max: 20.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
     cloud_valid_y_abs_max: 20.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
-    cloud_valid_z_min: 0.1 # 点云转换到head_init后，z轴有效最小值（单位：米）
-    cloud_valid_z_max: 2.0 # 点云转换到head_init后，z轴有效最大值（单位：米）
+    cloud_valid_z_min: 0.1 # 相对于机器人(odometry) z 坐标的最小偏移（单位：米），过滤地面点
+    cloud_valid_z_max: 2.0 # 相对于机器人(odometry) z 坐标的最大偏移（单位：米），过滤高空点
     self_obstacle_clear_radius: 0.45 # 规划输入中剔除机器人自身附近障碍半径（米）；机器狗对角线约0.40m，需覆盖自身
     cloud_tf_fallback_max_age_ms: 100 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
 

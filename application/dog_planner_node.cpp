@@ -433,14 +433,18 @@ private:
     // 2) 剔除 NaN/Inf 非法点；
     // 3) 将点从传感器坐标系转换到 head_init；
     // 4) 执行全局有效范围过滤（x/y 绝对值范围、z 范围）；
-    // 5) 在有效点中再按障碍高度窗 [0.1, 2.0] 提取用于避障的点。
+    // 5) 在有效点中再按障碍高度窗（相对于机器人 z 的相对窗口）提取用于避障的点。
     const double cur_x = have_odom_ ? last_odom_.pose.pose.position.x : 0.0;
     const double cur_y = have_odom_ ? last_odom_.pose.pose.position.y : 0.0;
     const double map_half = grid_map_size_m_ / 2.0;
+    // 相对于机器人(odometry)当前 z 的动态过滤窗口，避免 head_init 坐标系漂移导致误滤障碍点。
+    const double robot_z = have_odom_ ? last_odom_.pose.pose.position.z : 0.0;
+    const double cloud_z_min_abs = have_odom_ ? (robot_z + cloud_valid_z_min_) : cloud_valid_z_min_;
+    const double cloud_z_max_abs = have_odom_ ? (robot_z + cloud_valid_z_max_) : cloud_valid_z_max_;
     if (debug_) {
       std::cout << "[lidar][模块4] 参考位置: have_odom=" << (have_odom_ ? "true" : "false") << " cur=(" << cur_x << "," << cur_y
-                << ") map_half=" << map_half << "m  cloud_valid_z=[" << cloud_valid_z_min_ << "," << cloud_valid_z_max_
-                << "]  障碍高度窗=[0.1,2.0]" << std::endl;
+                << ") map_half=" << map_half << "m  cloud_valid_z_offset=[" << cloud_valid_z_min_ << "," << cloud_valid_z_max_
+                << "]  cloud_valid_z_abs=[" << cloud_z_min_abs << "," << cloud_z_max_abs << "]" << std::endl;
     }
     std::vector<std::array<float, 3>> kept;
     std::vector<dog_ego_planner::Obstacle2D> new_obs2d;
@@ -476,7 +480,7 @@ private:
           ++dbg_nan_head;
           continue;
         }
-        if (p_head.z() < cloud_valid_z_min_ || p_head.z() > cloud_valid_z_max_) {
+        if (p_head.z() < cloud_z_min_abs || p_head.z() > cloud_z_max_abs) {
           ++dbg_z_cloud_range;
           continue;
         }
@@ -488,7 +492,7 @@ private:
           continue;
         }
 
-        if (p_head.z() >= 0.1 && p_head.z() <= 2.0) {
+        if (p_head.z() >= cloud_z_min_abs && p_head.z() <= cloud_z_max_abs) {
           // kept: 用于发布过滤后的 debug 点云（保留 xyz）。
           kept.push_back({static_cast<float>(p_head.x()), static_cast<float>(p_head.y()), static_cast<float>(p_head.z())});
           // last_obs2d_: 规划器输入，仅保留二维障碍位置（x,y）。
@@ -501,7 +505,7 @@ private:
         std::cout << "[lidar][模块4] 遍历结束: 迭代点数=" << point_count << " iter_limit=" << iter_limit
                   << " | 跳过(传感器系非有限)=" << dbg_nan_sensor << " 跳过(head非有限)=" << dbg_nan_head
                   << " 跳过(cloud z窗)=" << dbg_z_cloud_range << " 跳过(地图外)=" << dbg_outside_map
-                  << " 跳过(非障碍高度0.1~2)=" << dbg_not_obstacle_height << " | 保留障碍点=" << kept.size()
+                  << " 跳过(非障碍高度相对窗口)=" << dbg_not_obstacle_height << " | 保留障碍点=" << kept.size()
                   << std::endl;
       }
     } catch (const std::runtime_error& e) {
