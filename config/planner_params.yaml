@@ -27,7 +27,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     if_test_pct_path_update_tolerance: 0.01 # 判定两条路径"相同"的逐点距离容差（米）
 
     # =============== 重规划触发阈值 ===============
-    goal_threshold: 0.1 # 到达目标点判定阈值（单位：米）
+    goal_threshold: 0.7 # 到达目标点判定阈值（单位：米）
     pose_change_thresh: 0.05 # 位姿变化触发重规划阈值（单位：米）
     obs_change_thresh: 0.1 # 障碍变化触发重规划阈值（单位：米）
     # true：当位姿/障碍/剩余距离均未触发且已有局部路径时，跳过本次重规划（省算力）；false：不执行该判断，继续走 makePlan

@@ -9,6 +9,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <std_msgs/msg/header.hpp>
+#include <std_msgs/msg/int32.hpp>
 
 #include <Eigen/Dense>
 
@@ -257,6 +258,7 @@ public:
     pub_global_unfinished_ = create_publisher<nav_msgs::msg::Path>("/dog_output_global_path_unfinished", 10);
     pub_local_path_ = create_publisher<nav_msgs::msg::Path>("/dog_output_local_path", 10);
     pub_occupancy_map_ = create_publisher<nav_msgs::msg::OccupancyGrid>("/dog_2Dmap_occupancy", 1);
+    pub_if_reach_the_goal_ = create_publisher<std_msgs::msg::Int32>("/if_reach_the_goal", 10);
 
     // TF 监听器：用于将激光点云从 vita_lidar 等传感器坐标系转换到 head_init。
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -276,6 +278,7 @@ public:
 
     data_wait_start_time_ = std::chrono::steady_clock::now();
     data_wait_timer_ = create_wall_timer(std::chrono::seconds(1), [this] { dataWaitStatusTick(); });
+    goal_reach_check_timer_ = create_wall_timer(std::chrono::milliseconds(200), [this] { publishReachGoalStatus(); });
 
     RCLCPP_INFO(get_logger(), "dog_ego_planner 节点初始化完成，订阅话题: %s, %s, %s",
                 topic_odom_.c_str(), topic_pct_path_.c_str(), topic_lidar_.c_str());
@@ -317,6 +320,7 @@ private:
     }
     last_odom_ = msg;
     have_odom_ = true;
+    publishReachGoalStatus();
   }
 
   void autofunction_dealwith_pct_path(const nav_msgs::msg::Path& msg)
@@ -329,12 +333,14 @@ private:
         std::cout << "收到pct话题，但是/pct_path 为空" << std::endl;
       }
       have_pct_path_ = false;
+      publishReachGoalStatus();
       return;
     }
     if (if_test_pct_path_update_ && isSamePath(msg, last_pct_path_)) {
       if (print_callback_msg_) {
         std::cout << "收到pct话题，并且/pct_path 与上次相同，跳过" << std::endl;
       }
+      publishReachGoalStatus();
       return;
     }
     last_pct_path_ = msg;
@@ -345,7 +351,31 @@ private:
     if (print_callback_msg_) {
       std::cout << "收到pct话题，并且/pct_path 不为空，可用来计算" << std::endl;
     }
+    publishReachGoalStatus();
     updateGlobalUnfinished();
+  }
+
+  void publishReachGoalStatus()
+  {
+    int32_t reach_flag = 1;  // 默认：未收到全局路径前视为已到达（按需求）
+    if (have_pct_path_ && !last_pct_path_.poses.empty()) {
+      if (!have_odom_) {
+        reach_flag = 0;
+      } else {
+        const Eigen::Vector2d cur = currentPoseXY();
+        const auto& p = last_pct_path_.poses.back().pose.position;
+        const Eigen::Vector2d goal(p.x, p.y);
+        reach_flag = (dist2d(cur, goal) <= goal_threshold_) ? 1 : 0;
+      }
+    }
+    if_reach_the_goal_ = reach_flag;
+    // 关键修复：若目标已变化或当前未到达，则允许重新进入重规划流程。
+    if (if_reach_the_goal_ == 0) {
+      planning_finished_ = false;
+    }
+    std_msgs::msg::Int32 msg;
+    msg.data = if_reach_the_goal_;
+    pub_if_reach_the_goal_->publish(msg);
   }
 
   bool isSamePath(const nav_msgs::msg::Path& a, const nav_msgs::msg::Path& b) const
@@ -797,7 +827,8 @@ private:
     // Goal check (global end).
     const Eigen::Vector2d G = pct_pts.back();
     if (dist2d(A, G) < goal_threshold_) {
-      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000, "Goal reached, stop planning.");
+      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
+                           "===到达目标点，停止规划=== Goal reached, stop planning. ");
       planning_finished_ = true;
       publishEmptyAndStop();
     }
@@ -1398,10 +1429,12 @@ private:
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_global_unfinished_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_local_path_;
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr pub_occupancy_map_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_if_reach_the_goal_;
 
   rclcpp::TimerBase::SharedPtr replan_timer_;
   rclcpp::TimerBase::SharedPtr global_path_update_timer_;
   rclcpp::TimerBase::SharedPtr data_wait_timer_;
+  rclcpp::TimerBase::SharedPtr goal_reach_check_timer_;
   std::chrono::steady_clock::time_point data_wait_start_time_;
 
   // Latest inputs
@@ -1419,6 +1452,7 @@ private:
 
   // State
   bool planning_finished_{false};
+  int32_t if_reach_the_goal_{1};
   bool have_local_plan_{false};
   uint64_t replan_count_{0};
   std::vector<Eigen::Vector2d> last_global_unfinished_pts_;
