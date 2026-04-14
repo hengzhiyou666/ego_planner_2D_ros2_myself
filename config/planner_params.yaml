@@ -20,7 +20,7 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     use_sim_time: true
 
     # =============== 全局路径更新 ===============
-    global_path_update_interval_s: 2.0 # 定时器周期（秒），每隔该时间根据 /pct_path 和当前 /odometry 重新计算全局未完成路径；0 或负值表示禁用定时器
+    global_path_update_interval_s: 10000.0 # 定时器周期（秒），每隔该时间根据 /pct_path 和当前 /odometry 重新计算全局未完成路径；0 或负值表示禁用定时器
 
     # =============== 全局路径去重 ===============
     if_test_pct_path_update: true # 是否检测本次pct_path与上次是否相同；true=相同则跳过，false=每次都处理
@@ -64,8 +64,8 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     cloud_tf_allow_latest_fallback: true
     cloud_valid_x_abs_max: 20.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
     cloud_valid_y_abs_max: 20.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
-    cloud_valid_z_min: 0.1 # 相对于机器人(odometry) z 坐标的最小偏移（单位：米），过滤地面点
-    cloud_valid_z_max: 2.0 # 相对于机器人(odometry) z 坐标的最大偏移（单位：米），过滤高空点
+    cloud_valid_z_min: 0.01 # 相对于机器人(odometry) z 坐标的最小偏移（单位：米），过滤地面点
+    cloud_valid_z_max: 1.0 # 相对于机器人(odometry) z 坐标的最大偏移（单位：米），过滤高空点
     self_obstacle_clear_radius: 0.45 # 规划输入中剔除机器人自身附近障碍半径（米）；机器狗对角线约0.40m，需覆盖自身
     cloud_tf_fallback_max_age_ms: 100 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
 
@@ -73,4 +73,4 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     max_consecutive_failures_before_cooldown: 3 # 连续规划失败达到该次数后，进入冷却
     replan_failure_cooldown_ms: 200 # 冷却时长（毫秒），冷却期内跳过重规划
     # 自首次 makePlan 失败起累计墙钟时间（秒），达到后每次失败发布「当前位姿原地停留」局部路径；重规划仍照常执行，成功则恢复运动；<=0 表示关闭该行为
-    if_continuously_plan_failed_time: 2.0
+    if_continuously_plan_failed_time: 1.0
