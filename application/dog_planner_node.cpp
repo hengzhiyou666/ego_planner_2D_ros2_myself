@@ -124,6 +124,17 @@ double angleDeg(const Eigen::Vector2d& v1, const Eigen::Vector2d& v2)
   return std::acos(c) * 180.0 / M_PI;
 }
 
+double squaredDistancePointToSegment(
+  const Eigen::Vector2d& q, const Eigen::Vector2d& a, const Eigen::Vector2d& b)
+{
+  const Eigen::Vector2d ab = b - a;
+  const double ab2 = ab.squaredNorm();
+  if (ab2 <= 1e-12) return (q - a).squaredNorm();
+  const double t = std::max(0.0, std::min(1.0, (q - a).dot(ab) / ab2));
+  const Eigen::Vector2d proj = a + t * ab;
+  return (q - proj).squaredNorm();
+}
+
 /** 根据「自上次成功规划以来」各定时器周期的统计，生成间隔偏长的主因说明（中文）。 */
 std::string buildInterSuccessGapReasonLine(uint64_t n_cooldown, uint64_t n_nodata, uint64_t n_notrigger,
                                            uint64_t n_shortpath, uint64_t n_planfail, double replan_period_ms)
@@ -929,6 +940,38 @@ private:
     return idx;
   }
 
+  bool isStraightLineCollisionFree(const Eigen::Vector2d& start, const Eigen::Vector2d& goal, double clearance) const
+  {
+    if (!std::isfinite(start.x()) || !std::isfinite(start.y()) ||
+        !std::isfinite(goal.x()) || !std::isfinite(goal.y())) {
+      return false;  // 防呆：非法输入视为不可安全直连
+    }
+    if (!have_cloud_ || last_obs2d_.empty()) return true;
+    const double clearance_safe = std::max(0.0, clearance);
+    const double clearance2 = clearance_safe * clearance_safe;
+    for (const auto& o : last_obs2d_) {
+      const Eigen::Vector2d p(o.x, o.y);
+      if (squaredDistancePointToSegment(p, start, goal) <= clearance2) return false;
+    }
+    return true;
+  }
+
+  static std::vector<Eigen::Vector2d> buildStraightReferencePath(
+    const Eigen::Vector2d& start, const Eigen::Vector2d& goal)
+  {
+    std::vector<Eigen::Vector2d> curve;
+    const double L = dist2d(start, goal);
+    if (L <= 1e-9) return curve;
+    constexpr double kStraightStepM = 0.2;
+    const int seg_n = std::max(3, static_cast<int>(std::ceil(L / kStraightStepM)));
+    curve.reserve(static_cast<size_t>(seg_n) + 1U);
+    for (int i = 0; i <= seg_n; ++i) {
+      const double t = static_cast<double>(i) / static_cast<double>(seg_n);
+      curve.push_back(start + t * (goal - start));
+    }
+    return curve;
+  }
+
   /** 原地停留：重复当前平面位置，便于下游收到带新时间戳的非空 Path。 */
   static std::vector<Eigen::Vector2d> standStillLocalPathXY(const Eigen::Vector2d& cur)
   {
@@ -1208,8 +1251,16 @@ private:
          horizon_m -= step_effective, ++dynamic_try_count)
     {
       Eigen::Vector2d temp_goal_this_try = current_unfinished.back();
-      const std::vector<Eigen::Vector2d> curve1 =
+      std::vector<Eigen::Vector2d> curve1 =
         takeHorizonCurve1(current_unfinished, horizon_m, temp_goal_this_try);
+      // 当当前位置到临时目标点的直线更短且无障碍时，优先使用直线参考，避免被固定 6m 弧长“拉弯”。
+      const double direct_dist = dist2d(cur, temp_goal_this_try);
+      const bool direct_is_shorter = (direct_dist + 1e-3 < horizon_m);
+      const double direct_clearance = std::max(grid_inflate_radius_, self_obstacle_clear_radius_);
+      if (direct_is_shorter && isStraightLineCollisionFree(cur, temp_goal_this_try, direct_clearance)) {
+        std::vector<Eigen::Vector2d> straight_curve = buildStraightReferencePath(cur, temp_goal_this_try);
+        if (straight_curve.size() >= 4) curve1 = std::move(straight_curve);
+      }
       if (curve1.size() < 4) {
         std::cout << "本次" << std::fixed << std::setprecision(1) << horizon_m
                   << "m规划失败（前视路径点不足）" << std::endl;
