@@ -224,6 +224,13 @@ public:
     cloud_tf_fallback_max_age_ms_ = declare_parameter<int>("cloud_tf_fallback_max_age_ms", 500);
     cloud_tf_allow_latest_fallback_ = declare_parameter<bool>("cloud_tf_allow_latest_fallback", true);
     global_path_update_interval_s_ = declare_parameter<double>("global_path_update_interval_s", 1.0);
+    enable_direct_follow_when_corridor_clear_ =
+      declare_parameter<bool>("enable_direct_follow_when_corridor_clear", true);
+    corridor_half_width_m_ = declare_parameter<double>("corridor_half_width_m", 0.3);
+    corridor_dense_step_m_ = declare_parameter<double>("corridor_dense_step_m", 0.1);
+    direct_follow_require_lidar_ = declare_parameter<bool>("direct_follow_require_lidar", false);
+    if_filter_6m_ = declare_parameter<bool>("if_filter_6m", true);
+    filter_6m_rounds_ = declare_parameter<int>("filter_6m_rounds", 2);
     if_test_pct_path_update_ = declare_parameter<bool>("if_test_pct_path_update", true);
     if_test_pct_path_update_tolerance_ = declare_parameter<double>("if_test_pct_path_update_tolerance", 0.01);
     replan_failure_cooldown_ms_ = declare_parameter<int>("replan_failure_cooldown_ms", 500);
@@ -742,29 +749,29 @@ private:
     pub_global_unfinished_->publish(empty);
   }
 
-  void updateGlobalUnfinished()
+  /**
+   * 用当前位姿 A 与 /pct_path 构造未完成路径（不依赖上一帧 last_global_unfinished 折线）：
+   * - B：在 pct 的搜索窗口内，若有局部路径则在「距 A 最近的局部路径点」附近在 pct 上取最近顶点，否则取 pct 上距 A 最近顶点；
+   * - 沿 pct 从 B 前进弧长 AB（AB 为 A 到 B 点的欧式距离）得 C，使弧 BC ≈ AB；
+   * - 输出：A + 直线 AC（0.1m 密化）+ C 之后沿 pct 的剩余路径。
+   */
+  bool fillUnfinishedFromPctPath(const Eigen::Vector2d& A, std::vector<Eigen::Vector2d>& out_pts)
   {
-    if (!have_odom_ || !have_pct_path_) return;
+    out_pts.clear();
+    if (!have_pct_path_ || last_pct_path_.poses.size() < 2) return false;
 
-    // Convert pct_path poses into 2D points (keep original density).
     std::vector<Eigen::Vector2d> pct_pts;
     pct_pts.reserve(last_pct_path_.poses.size());
     for (const auto& ps : last_pct_path_.poses) {
       pct_pts.emplace_back(ps.pose.position.x, ps.pose.position.y);
     }
-    if (pct_pts.size() < 2) return;
 
-    const Eigen::Vector2d A = currentPoseXY();
-
-    // b 点搜索窗口：
-    // - 启动或新 /pct_path 后：b 从起点开始；
-    // - 后续更新：仅在 [上次 b, 上次 b + global_path_update_interval_s_*1.5m] 这一段找离 A 最近的 b。
     size_t search_start_idx = 0;
     if (have_last_b_idx_on_pct_ && last_b_idx_on_pct_ < pct_pts.size()) {
       search_start_idx = last_b_idx_on_pct_;
     }
     const double max_forward_search_len =
-      std::max(0.0, global_path_update_interval_s_) * 5;  // 速度上限 1.5m/s
+      std::max(0.0, global_path_update_interval_s_) * 5;  // 与定时更新窗口一致
 
     size_t search_end_idx = search_start_idx;
     double acc_forward_len = 0.0;
@@ -782,28 +789,36 @@ private:
 
     size_t idxB = search_start_idx;
     double best_d2 = std::numeric_limits<double>::infinity();
-    for (size_t i = search_start_idx; i <= search_end_idx; ++i) {
-      const double d2 = (pct_pts[i] - A).squaredNorm();
-      if (d2 < best_d2) {
-        best_d2 = d2;
-        idxB = i;
+    if (have_local_plan_ && last_local_path_pts_.size() >= 2) {
+      const size_t i_loc = closestIndex(last_local_path_pts_, A);
+      const Eigen::Vector2d B_loc = last_local_path_pts_[i_loc];
+      for (size_t i = search_start_idx; i <= search_end_idx; ++i) {
+        const double d2 = (pct_pts[i] - B_loc).squaredNorm();
+        if (d2 < best_d2) {
+          best_d2 = d2;
+          idxB = i;
+        }
+      }
+    } else {
+      for (size_t i = search_start_idx; i <= search_end_idx; ++i) {
+        const double d2 = (pct_pts[i] - A).squaredNorm();
+        if (d2 < best_d2) {
+          best_d2 = d2;
+          idxB = i;
+        }
       }
     }
     last_b_idx_on_pct_ = idxB;
     have_last_b_idx_on_pct_ = true;
 
     const double AB = dist2d(A, pct_pts[idxB]);
-
-    // Find C by moving forward from B with length AB along pct_path.
     const InterpOnPath Cinfo = pointAlongPath(pct_pts, idxB, AB);
     const Eigen::Vector2d C = Cinfo.p;
 
-    // Build A->C dense (10cm) if needed.
-    std::vector<Eigen::Vector2d> out_pts;
     out_pts.reserve(200);
     out_pts.push_back(A);
     const double AC = dist2d(A, C);
-    if (AC >= 0.1 && std::isfinite(AC)) {  // 防呆：AC 非有限则跳过
+    if (AC >= 0.1 && std::isfinite(AC)) {
       const Eigen::Vector2d dir = (C - A) / AC;
       constexpr int kMaxInterpIter = 10000;
       int interp_iter = 0;
@@ -813,30 +828,30 @@ private:
     }
     out_pts.push_back(C);
 
-    // Append unfinished segment after C (including the remaining path points).
-    // C lies on segment [i0, i0+1], so append i0+1 ... end
     const size_t start_append = std::min(Cinfo.i0 + 1, pct_pts.size() - 1);
     for (size_t i = start_append; i < pct_pts.size(); ++i) out_pts.push_back(pct_pts[i]);
 
-    // Publish unfinished global path.
-    nav_msgs::msg::Path msg;
-    msg.header.stamp = now();
-    msg.header.frame_id = kFrameId;
-    msg.poses.reserve(out_pts.size());
-    for (const auto& p : out_pts) {
-      geometry_msgs::msg::PoseStamped ps;
-      ps.header = msg.header;
-      ps.pose.position.x = p.x();
-      ps.pose.position.y = p.y();
-      ps.pose.position.z = 0.0;
-      ps.pose.orientation.w = 1.0;
-      msg.poses.push_back(ps);
-    }
-    last_global_unfinished_pts_ = std::move(out_pts);
-    pub_global_unfinished_->publish(msg);
+    return out_pts.size() >= 2;
+  }
 
-    // Goal check (global end).
-    const Eigen::Vector2d G = pct_pts.back();
+  bool recomputeAndPublishUnfinishedFromPose(const Eigen::Vector2d& A)
+  {
+    std::vector<Eigen::Vector2d> out_pts;
+    if (!fillUnfinishedFromPctPath(A, out_pts)) return false;
+    last_global_unfinished_pts_ = std::move(out_pts);
+    pub_global_unfinished_->publish(toPathMsg(last_global_unfinished_pts_));
+    return true;
+  }
+
+  void updateGlobalUnfinished()
+  {
+    if (!have_odom_ || !have_pct_path_) return;
+
+    const Eigen::Vector2d A = currentPoseXY();
+    if (!recomputeAndPublishUnfinishedFromPose(A)) return;
+
+    const auto& gpose = last_pct_path_.poses.back().pose.position;
+    const Eigen::Vector2d G(gpose.x, gpose.y);
     if (dist2d(A, G) < goal_threshold_) {
       RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
                            "===到达目标点，停止规划=== Goal reached, stop planning. ");
@@ -954,6 +969,80 @@ private:
       if (squaredDistancePointToSegment(p, start, goal) <= clearance2) return false;
     }
     return true;
+  }
+
+  /** 障碍点到折线各段的最小距离平方均大于 half_width^2 时，认为「长沿路径、宽 2*half_width」的走廊内无障碍。 */
+  bool isCorridorClearAlongPolyline(
+    const std::vector<Eigen::Vector2d>& poly,
+    double half_width_m,
+    const std::vector<dog_ego_planner::Obstacle2D>& obs) const
+  {
+    if (poly.size() < 2) return false;
+    const double hw = std::max(0.0, half_width_m);
+    const double hw2 = hw * hw;
+    constexpr size_t kMaxObstacleChecks = 200000;
+    size_t checked = 0;
+    for (const auto& o : obs) {
+      if (++checked > kMaxObstacleChecks) break;
+      const Eigen::Vector2d p(o.x, o.y);
+      double best_d2 = std::numeric_limits<double>::infinity();
+      for (size_t i = 0; i + 1 < poly.size(); ++i) {
+        const double d2 = squaredDistancePointToSegment(p, poly[i], poly[i + 1]);
+        if (d2 < best_d2) best_d2 = d2;
+      }
+      if (best_d2 <= hw2) return false;
+    }
+    return true;
+  }
+
+  static std::vector<Eigen::Vector2d> densifyPolylineXY(const std::vector<Eigen::Vector2d>& poly, double step_m)
+  {
+    std::vector<Eigen::Vector2d> out;
+    if (poly.empty()) return out;
+    if (poly.size() == 1) return poly;
+    constexpr double kMinStep = 0.05;
+    const double step = std::max(kMinStep, step_m);
+    out.reserve(poly.size() * 5U);
+    out.push_back(poly.front());
+    constexpr size_t kMaxSegWalk = 100000;
+    size_t seg_walk = 0;
+    for (size_t i = 0; i + 1 < poly.size(); ++i) {
+      if (++seg_walk > kMaxSegWalk) break;
+      const Eigen::Vector2d a = poly[i];
+      const Eigen::Vector2d b = poly[i + 1];
+      const double L = (b - a).norm();
+      if (L < 1e-9) continue;
+      const Eigen::Vector2d dir = (b - a) / L;
+      double d = step;
+      constexpr int kMaxDensePerSeg = 100000;
+      int n_dense = 0;
+      while (d < L - 1e-9 && n_dense < kMaxDensePerSeg) {
+        out.push_back(a + dir * d);
+        d += step;
+        ++n_dense;
+      }
+    }
+    out.push_back(poly.back());
+    return out;
+  }
+
+  static std::vector<Eigen::Vector2d> smoothPathForDirect6m(
+    const std::vector<Eigen::Vector2d>& pts, int rounds = 2)
+  {
+    if (pts.size() < 3 || rounds <= 0) return pts;
+    std::vector<Eigen::Vector2d> cur = pts;
+    std::vector<Eigen::Vector2d> nxt = cur;
+    constexpr int kMaxRounds = 5;
+    const int n_rounds = std::max(1, std::min(rounds, kMaxRounds));
+    for (int r = 0; r < n_rounds; ++r) {
+      nxt = cur;
+      for (size_t i = 1; i + 1 < cur.size(); ++i) {
+        // 轻量平滑：保留端点，内部点做 1-2-1 加权，削弱尖角但不显著偏离原路径。
+        nxt[i] = 0.25 * cur[i - 1] + 0.5 * cur[i] + 0.25 * cur[i + 1];
+      }
+      cur.swap(nxt);
+    }
+    return cur;
   }
 
   static std::vector<Eigen::Vector2d> buildStraightReferencePath(
@@ -1080,17 +1169,12 @@ private:
     return filtered;
   }
 
-  std::vector<Eigen::Vector2d> buildCurrentUnfinished(const Eigen::Vector2d& cur) const
+  /** 每次重规划用当前位姿与 /pct_path（及可选局部路径定 B）现算未完成折线，不在旧 last_global 上取最近点裁剪。 */
+  std::vector<Eigen::Vector2d> buildCurrentUnfinished(const Eigen::Vector2d& cur)
   {
-    if (last_global_unfinished_pts_.size() < 2) return {};
-    const size_t idx = closestIndex(last_global_unfinished_pts_, cur);
-    std::vector<Eigen::Vector2d> result;
-    result.reserve(1 + (last_global_unfinished_pts_.size() - idx));
-    result.push_back(cur);
-    for (size_t i = idx; i < last_global_unfinished_pts_.size(); ++i) {
-      result.push_back(last_global_unfinished_pts_[i]);
-    }
-    return result;
+    std::vector<Eigen::Vector2d> out;
+    if (!fillUnfinishedFromPctPath(cur, out)) return {};
+    return out;
   }
 
   // 定时器回调：判断重规划触发条件，并执行一次局部重规划。
@@ -1140,9 +1224,9 @@ private:
       return;
     }
     //std::cout << "222222222222222222222222222222222222222222222222" << std::endl;
-    if (last_global_unfinished_pts_.size() < 2) {
+    if (last_pct_path_.poses.size() < 2) {
       ++gap_skip_short_path_ticks_;
-      printReplanTickExitReason("全局未完成路径点数不足(<2)，无法重规划");
+      printReplanTickExitReason("pct_path 点数不足(<2)，无法重规划");
       return;
     }
     //std::cout << "333333333333333333333333333333333333333333333333" << std::endl;
@@ -1189,12 +1273,11 @@ private:
               << " 剩余距离触发=" << (trigger_by_remaining ? "是" : "否")
               << " ++++++++++++++++++++++" << std::endl;
 
-    // 用当前 odom 裁剪全局未完成路径：从最近点开始，前面补上当前位置，
-    // 保证局部规划起点始终跟随 /odometry，而不依赖 updateGlobalUnfinished 的调用时机。
+    // 未完成路径：A=当前位姿，B 在 pct（或结合局部路径）上，C 满足弧 BC≈|AB|，再直线 AC + C 后 pct；不沿用旧 last_global 折线裁剪。
     const std::vector<Eigen::Vector2d> current_unfinished = buildCurrentUnfinished(cur);
     if (current_unfinished.size() < 2) {
       ++gap_skip_short_path_ticks_;
-      printReplanTickExitReason("裁剪后未完成路径过短(buildCurrentUnfinished后点数<2)，跳过规划");
+      printReplanTickExitReason("由 pct_path 构造未完成路径失败或点数<2，跳过规划");
       printPlanningStatsLine("[跳过本次规划]", 0.0, false);
       return;
     }
@@ -1242,8 +1325,65 @@ private:
     const double step_abs = std::max(std::abs(local_path_step_m_), 1e-6);
     const double step_effective = step_abs;
 
+    // 沿「当前裁剪后的未完成全局路径」截取前 max_m：若中心线左右 corridor_half_width_m 走廊内无障碍，则直接发布该段，不调用 EGO。
+    // 未完成折线与 updateGlobalUnfinished 同源：fillUnfinishedFromPctPath(A)；与 last_global_unfinished 是否刚被拼接无关。
+    if (enable_direct_follow_when_corridor_clear_) {
+      const bool lidar_ok = !direct_follow_require_lidar_ || have_cloud_;
+      if (lidar_ok) {
+        const std::vector<dog_ego_planner::Obstacle2D> planning_obs_corridor =
+          filterObstaclesNearRobot(last_obs2d_, cur);
+        Eigen::Vector2d temp_goal_corridor = current_unfinished.back();
+        std::vector<Eigen::Vector2d> curve_corridor =
+          takeHorizonCurve1(current_unfinished, max_m, temp_goal_corridor);
+        (void)temp_goal_corridor;
+        if (curve_corridor.size() >= 2 &&
+            isCorridorClearAlongPolyline(curve_corridor, corridor_half_width_m_, planning_obs_corridor)) {
+          std::vector<Eigen::Vector2d> curve_dense =
+            densifyPolylineXY(curve_corridor, corridor_dense_step_m_);
+          if (if_filter_6m_ && curve_dense.size() >= 3) {
+            curve_dense = smoothPathForDirect6m(curve_dense, filter_6m_rounds_);
+          }
+          if (curve_dense.size() >= 2) {
+            consecutive_plan_failures_ = 0;
+            continuous_plan_fail_start_ = std::chrono::steady_clock::time_point::min();
+            replan_cooldown_until_ = std::chrono::steady_clock::time_point::min();
+
+            const double replan_period_ms = 1000.0 / std::max(1.0, replan_freq_);
+            const std::string reason_this_gap = buildInterSuccessGapReasonLine(
+              gap_skip_cooldown_ticks_, gap_skip_no_data_ticks_, gap_skip_no_trigger_ticks_,
+              gap_skip_short_path_ticks_, gap_plan_fail_ticks_, replan_period_ms);
+            gap_skip_cooldown_ticks_ = 0;
+            gap_skip_no_data_ticks_ = 0;
+            gap_skip_no_trigger_ticks_ = 0;
+            gap_skip_short_path_ticks_ = 0;
+            gap_plan_fail_ticks_ = 0;
+            recent_success_gap_reasons_.push_back(reason_this_gap);
+            recent_success_plan_times_.push_back(std::chrono::steady_clock::now());
+            while (recent_success_plan_times_.size() > 10U) {
+              recent_success_plan_times_.pop_front();
+              recent_success_gap_reasons_.pop_front();
+            }
+            printPlanningStatsLine("[直通全局走廊]", 0.0, true);
+
+            last_local_path_pts_ = curve_dense;
+            have_local_plan_ = true;
+            pub_local_path_->publish(toPathMsg(curve_dense));
+            // unfinished 始终按 A->B->C->AC 规则从当前位置现算，避免被局部路径（含滤波）拼接改写。
+            (void)recomputeAndPublishUnfinishedFromPose(cur);
+
+            last_plan_pose_ = cur;
+            last_plan_obstacles_ = last_obs2d_;
+            RCLCPP_DEBUG_THROTTLE(
+              get_logger(), *get_clock(), 2000,
+              "Corridor clear along %.2fm: direct global segment, half_width=%.2fm, no EGO.",
+              max_m, corridor_half_width_m_);
+            return;
+          }
+        }
+      }
+    }
+
     bool ok = false;
-    Eigen::Vector2d temp_goal = current_unfinished.back();
     constexpr int kMaxDynamicTry = 200;
     int dynamic_try_count = 0;
     for (double horizon_m = max_m;
@@ -1279,7 +1419,6 @@ private:
 
       ok = planner_.makePlan(start_vel, start_acc, goal_vel);
       if (ok) {
-        temp_goal = temp_goal_this_try;
         std::cout << "本次" << std::fixed << std::setprecision(1) << horizon_m
                   << "m规划成功" << std::endl;
         break;
@@ -1369,15 +1508,8 @@ private:
     have_local_plan_ = true;
     pub_local_path_->publish(toPathMsg(curve2));
 
-    // Update unfinished global by replacing the first horizon segment with curve2 (simple splice).
-    // Find where to splice: the end of curve1 corresponds to temp_goal; we splice at closest point in global_unfinished.
-    size_t splice_idx = closestIndex(last_global_unfinished_pts_, temp_goal);
-    std::vector<Eigen::Vector2d> new_global;
-    new_global.reserve(curve2.size() + (last_global_unfinished_pts_.size() - splice_idx));
-    new_global.insert(new_global.end(), curve2.begin(), curve2.end());
-    for (size_t i = splice_idx; i < last_global_unfinished_pts_.size(); ++i) new_global.push_back(last_global_unfinished_pts_[i]);
-    last_global_unfinished_pts_ = new_global;
-    pub_global_unfinished_->publish(toPathMsg(last_global_unfinished_pts_));
+    // unfinished 始终按 A->B->C->AC 规则从当前位置现算，不再用局部轨迹拼接覆盖。
+    (void)recomputeAndPublishUnfinishedFromPose(cur);
 
     // Update planning state snapshot.
     last_plan_pose_ = cur;
@@ -1462,6 +1594,12 @@ private:
   int cloud_tf_fallback_max_age_ms_{500};
   bool cloud_tf_allow_latest_fallback_{true};
   double global_path_update_interval_s_{1.0};
+  bool enable_direct_follow_when_corridor_clear_{true};
+  double corridor_half_width_m_{0.3};
+  double corridor_dense_step_m_{0.1};
+  bool direct_follow_require_lidar_{false};
+  bool if_filter_6m_{true};
+  int filter_6m_rounds_{2};
   bool if_test_pct_path_update_{true};
   double if_test_pct_path_update_tolerance_{0.01};
   int replan_failure_cooldown_ms_{500};

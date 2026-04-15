@@ -20,7 +20,16 @@ dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
     use_sim_time: true
 
     # =============== 全局路径更新 ===============
-    global_path_update_interval_s: 10000.0 # 定时器周期（秒），每隔该时间根据 /pct_path 和当前 /odometry 重新计算全局未完成路径；0 或负值表示禁用定时器
+    # 定时器周期（秒）：每隔该时间根据 /pct_path 与 /odometry 重算「未完成全局路径」；0 或负值禁用定时器（仍会在收到新 /pct_path 时更新）。
+    # 重规划时走廊检测使用的是当前内存中的未完成全局（由本定时器与 /pct_path 回调共同维护），请与 replan_freq 配合调参。
+    global_path_update_interval_s: 10000.0
+    # 沿未完成全局截取 local_path_max_m（如前 6m）：中心线左右各 corridor_half_width_m 的走廊内无障碍时，直接发布该段，不调用 EGO；否则走原有样条规划。
+    enable_direct_follow_when_corridor_clear: true
+    corridor_half_width_m: 0.3 # 左右各 0.3m → 约 0.6m 宽走廊；若需含车体+膨胀请调大（可与 self_obstacle_clear_radius 同量级对比）
+    corridor_dense_step_m: 0.1 # 直通段沿路径密化步长（米）
+    direct_follow_require_lidar: false # true：无激光点云时不做直通，一律进入 EGO
+    if_filter_6m: true # 当走廊无障碍且不触发 EGO 时，对当前位置起未走过的约6m直通路径做轻量平滑，降低尖角/直角导致的僵硬感
+    filter_6m_rounds: 40 # 平滑强度（迭代轮数，建议 1~4）；越大越平滑、也越偏离原折线
 
     # =============== 全局路径去重 ===============
     if_test_pct_path_update: true # 是否检测本次pct_path与上次是否相同；true=相同则跳过，false=每次都处理
