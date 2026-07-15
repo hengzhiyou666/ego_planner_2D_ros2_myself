@@ -1,35 +1,50 @@
-# 构建产物（colcon / cmake）
+# ROS 2 / colcon build products
 build/
 install/
 log/
 
-# 编译中间文件
-*.o
-*.a
-*.so
-*.dylib
+# CMake build products
 CMakeCache.txt
 CMakeFiles/
+CTestTestfile.cmake
 cmake_install.cmake
-Makefile
 compile_commands.json
+Makefile
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
 
-# IDE / 编辑器
+# Test, coverage and analysis output
+Testing/
+coverage/
+*.gcda
+*.gcno
+*.gcov
+.cache/
+
+# ROS bags and runtime data
+rosbag2_*/
+*.bag
+*.db3
+*.mcap
+metadata.yaml
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Personal IDE/editor configuration
 .vscode/
 .idea/
+.clangd/
 *.swp
 *.swo
 *~
 
-# ROS2 bag 录包数据
-*.db3
-*.bag
-metadata.yaml
-
-# 系统临时文件
+# Operating-system files
 .DS_Store
 Thumbs.db
-
-# Python 缓存
-__pycache__/
-*.pyc

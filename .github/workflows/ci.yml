@@ -1,0 +1,105 @@
+# Copyright 2026 hengzhiyou
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: ROS 2 Humble CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    container:
+      image: ros:humble-ros-base-jammy
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          apt-get update
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions
+          rosdep update
+          rosdep install --from-paths . --ignore-src --rosdistro humble -r -y
+
+      - name: Build
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build \
+            --packages-select dog_ego_planner \
+            --event-handlers console_direct+ \
+            --cmake-args \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DDOG_EGO_PLANNER_WARNINGS_AS_ERRORS=ON
+
+      - name: Test
+        shell: bash
+        env:
+          AMENT_CPPCHECK_ALLOW_SLOW_VERSIONS: "1"
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          colcon test \
+            --packages-select dog_ego_planner \
+            --event-handlers console_direct+
+          colcon test-result --verbose
+
+  sanitizers:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    container:
+      image: ros:humble-ros-base-jammy
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          apt-get update
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions
+          rosdep update
+          rosdep install --from-paths . --ignore-src --rosdistro humble -r -y
+
+      - name: Build with ASan and UBSan
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build \
+            --packages-select dog_ego_planner \
+            --event-handlers console_direct+ \
+            --cmake-args \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DDOG_EGO_PLANNER_WARNINGS_AS_ERRORS=ON \
+              -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+              -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+              -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Test with ASan and UBSan
+        shell: bash
+        env:
+          AMENT_CPPCHECK_ALLOW_SLOW_VERSIONS: "1"
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          colcon test \
+            --packages-select dog_ego_planner \
+            --event-handlers console_direct+
+          colcon test-result --verbose

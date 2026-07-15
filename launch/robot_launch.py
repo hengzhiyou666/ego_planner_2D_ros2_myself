@@ -1,69 +1,52 @@
-import os
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright 2026 hengzhiyou
 
-import yaml
+"""Compatibility wrapper for the historical launch-file name."""
+
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-def _read_launch_rviz(params_path: str) -> bool:
-    if not os.path.isfile(params_path):
-        return False
-    with open(params_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    if not data or not isinstance(data, dict):
-        return False
-    rp = data.get("dog_ego_planner", {}).get("ros__parameters", {})
-    return bool(rp.get("launch_rviz", False))
-
-
-def _launch_setup(context, *_args, **_kwargs):
-    params_file = context.perform_substitution(LaunchConfiguration("params_file"))
-    use_sim_time_str = context.perform_substitution(LaunchConfiguration("use_sim_time"))
-    use_sim_time = use_sim_time_str.lower() in ("true", "1", "yes")
-
-    dog_node = Node(
-        package="dog_ego_planner",
-        executable="dog_planner_node",
-        name="dog_ego_planner",
-        output="screen",
-        parameters=[
-            params_file,
-            {"use_sim_time": use_sim_time},
-        ],
-    )
-
-    nodes = [dog_node]
-    if _read_launch_rviz(params_file):
-        rviz_config = context.perform_substitution(
-            PathJoinSubstitution(
-                [FindPackageShare("dog_ego_planner"), "rviz", "dog_debug.rviz"]
-            )
-        )
-        nodes.append(
-            Node(
-                package="rviz2",
-                executable="rviz2",
-                name="rviz2",
-                output="screen",
-                arguments=["-d", rviz_config],
-                parameters=[{"use_sim_time": use_sim_time}],
-            )
-        )
-    return nodes
-
-
 def generate_launch_description():
+    package_share = FindPackageShare("dog_ego_planner")
     default_params_file = PathJoinSubstitution(
-        [FindPackageShare("dog_ego_planner"), "config", "planner_params.yaml"]
+        [package_share, "config", "planner_params.yaml"]
     )
+    canonical_launch = PathJoinSubstitution(
+        [package_share, "launch", "dog_ego_planner.launch.py"]
+    )
+
+    params_file = LaunchConfiguration("params_file")
+    use_sim_time = LaunchConfiguration("use_sim_time")
+    launch_rviz = LaunchConfiguration("launch_rviz")
+    namespace = LaunchConfiguration("namespace")
+    node_name = LaunchConfiguration("node_name")
 
     return LaunchDescription(
         [
             DeclareLaunchArgument("params_file", default_value=default_params_file),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
-            OpaqueFunction(function=_launch_setup),
+            DeclareLaunchArgument("launch_rviz", default_value="false"),
+            DeclareLaunchArgument("namespace", default_value=""),
+            DeclareLaunchArgument("node_name", default_value="dog_ego_planner"),
+            LogInfo(
+                msg=(
+                    "robot_launch.py is deprecated; use "
+                    "dog_ego_planner.launch.py instead."
+                )
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(canonical_launch),
+                launch_arguments={
+                    "params_file": params_file,
+                    "use_sim_time": use_sim_time,
+                    "launch_rviz": launch_rviz,
+                    "namespace": namespace,
+                    "node_name": node_name,
+                }.items(),
+            ),
         ]
     )

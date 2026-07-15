@@ -1,85 +1,89 @@
-dog_ego_planner: # ROS2 节点名称（需与代码中的节点名一致）
-  ros__parameters: # ROS2 参数命名空间
-    # =============== 订阅话题（机器狗上可能与电脑不同，需按实际话题名配置） ===============
-    topic_odom: "/odometry"      # 里程计话题，机器狗上可能是 /odom 等
-    topic_pct_path: "/pct_path"  # 全局路径话题
-    topic_lidar: "/lidar_points" # 激光点云话题（PointCloud2 类型），机器狗上需与发布者一致
-    # 与发布端 QoS 对齐：Path 常见为 Nav2/CLI 默认 RELIABLE+TRANSIENT_LOCAL；里程计常见为 BEST_EFFORT
-    pct_path_match_nav2_qos: true   # true=订阅用 RELIABLE+TRANSIENT_LOCAL（匹配 Nav2/ros2 topic pub 默认）；false=纯 BEST_EFFORT+VOLATILE（仅当路径发布端也是 volatile 时）
-    odometry_use_best_effort_qos: true  # false 时用 RELIABLE+VOLATILE 订阅里程计（仅当 best_effort 与发布端始终无法匹配时尝试）
+/**:
+  ros__parameters:
+    # ROS graph interface. Relative topic names remain identical in the root namespace
+    # and allow the node to be placed under a robot namespace.
+    topics.odom: "odometry"
+    topics.global_path: "pct_path"
+    topics.point_cloud: "lidar_points"
+    topics.filtered_point_cloud: "lidar_points_filtered"
+    topics.unfinished_global_path: "dog_output_global_path_unfinished"
+    topics.local_path: "dog_output_local_path"
+    topics.occupancy_grid: "dog_2Dmap_occupancy"
+    topics.goal_reached_legacy: "if_reach_the_goal"
+    topics.goal_reached: "goal_reached"
+    planning_frame: "head_init"
 
-    # =============== 基础运行开关 ===============
-    debug: false # 是否开启调试模式（true 会输出更多调试信息）
-    # true：打印 /odometry、/pct_path、/lidar_points 三话题回调的进入与是否可用等简要信息；false 关闭（点云 [lidar][模块*] 细日志仍由 debug 控制）
-    print_callback_msg: false
-    # true：在 replanTick 内每次提前 return 时打印退出原因（位于「距上次 replanTick」与「距上次 makePlan 入口」两段统计之间）
-    print_replan_return_reason: false
-    # robot_launch.py 读取：true 时随 launch 启动 rviz2 并加载 share/dog_ego_planner/rviz/dog_debug.rviz
-    launch_rviz: true
-    # 板端/真机务必 false：true 且无 /clock 时 ROS 时钟不前进，tf2 带 timeout 的 lookup 会死循环卡死
-    use_sim_time: true
+    odometry_use_best_effort_qos: true
+    pct_path_match_nav2_qos: true
 
-    # =============== 全局路径更新 ===============
-    # 定时器周期（秒）：每隔该时间根据 /pct_path 与 /odometry 重算「未完成全局路径」；0 或负值禁用定时器（仍会在收到新 /pct_path 时更新）。
-    # 重规划时走廊检测使用的是当前内存中的未完成全局（由本定时器与 /pct_path 回调共同维护），请与 replan_freq 配合调参。
-    global_path_update_interval_s: 10000.0
-    # 沿未完成全局截取 local_path_max_m（如前 6m）：中心线左右各 corridor_half_width_m 的走廊内无障碍时，直接发布该段，不调用 EGO；否则走原有样条规划。
+    debug: false
+    debug.optimizer_logging: false
+
+    # Global-path progress and replanning.
+    global_path_update_interval_s: 1.0
+    global_path.skip_duplicate_updates: true
+    if_test_pct_path_update_tolerance: 0.01
+    global_path.progress_search_margin_m: 1.0
+    global_path.initial_search_length_m: 5.0
+    global_path.reacquire_distance_m: 2.0
+    planning.replan_on_change_only: true
+    planning.remaining_path_trigger_m: 4.0
+    goal_threshold: 0.7
+    pose_change_thresh: 0.05
+    obs_change_thresh: 0.1
+    replan_freq: 10.0
+
+    # Local planning horizon and B-spline constraints.
+    local_path_max_m: 7.0
+    local_path_min_m: 2.0
+    planning.horizon_step_m: 1.0
+    control_point_interval: 0.3
+    max_vel: 1.0
+    max_acc: 1.5
+    max_jerk: 5.0
+    max_rebound_retries: 3
+
+    # Empty-corridor fast path. The clearance is derived from the robot footprint.
     enable_direct_follow_when_corridor_clear: true
-    corridor_half_width_m: 0.3 # 左右各 0.3m → 约 0.6m 宽走廊；若需含车体+膨胀请调大（可与 self_obstacle_clear_radius 同量级对比）
-    corridor_dense_step_m: 0.1 # 直通段沿路径密化步长（米）
-    direct_follow_require_lidar: false # true：无激光点云时不做直通，一律进入 EGO
-    if_filter_6m: true # 当走廊无障碍且不触发 EGO 时，对当前位置起未走过的约6m直通路径做轻量平滑，降低尖角/直角导致的僵硬感
-    filter_6m_rounds: 4 # 平滑强度（迭代轮数，建议 1~4）；越大越平滑、也越偏离原折线
+    direct_follow_require_lidar: true
+    corridor_dense_step_m: 0.1
+    direct_path.smoothing_enabled: true
+    direct_path.smoothing_iterations: 2
 
-    # =============== 全局路径去重 ===============
-    if_test_pct_path_update: true # 是否检测本次pct_path与上次是否相同；true=相同则跳过，false=每次都处理
-    if_test_pct_path_update_tolerance: 0.01 # 判定两条路径"相同"的逐点距离容差（米）
+    # Robot footprint and rolling occupancy map.
+    robot_footprint.length_m: 0.70
+    robot_footprint.width_m: 0.40
+    robot_footprint.safety_margin_m: 0.05
+    robot_footprint.self_filter_inset_m: 0.02
+    grid_map_size_m: 20.0
+    grid_map_resolution: 0.1
+    grid_inflate_radius: 0.46
+    astar_pool_size: 100
+    occupancy_publish_freq: 2.0
 
-    # =============== 重规划触发阈值 ===============
-    goal_threshold: 0.7 # 到达目标点判定阈值（单位：米）
-    pose_change_thresh: 0.05 # 位姿变化触发重规划阈值（单位：米）
-    obs_change_thresh: 0.1 # 障碍变化触发重规划阈值（单位：米）
-    # true：当位姿/障碍/剩余距离均未触发且已有局部路径时，跳过本次重规划（省算力）；false：不执行该判断，继续走 makePlan
-    control_if_test_environment_changing: true
-    replan_freq: 10.0 #取值范围[1.0-10.0] 重规划频率（单位：Hz，代码内部对过小值按1.0Hz下限处理）
-
-    # =============== 轨迹与几何参数 ===============
-    planning_horizon: 6.0 # 兼容保留参数；当 local_path_max_m 非法(<=0)时回退使用
-    local_path_max_m: 7.0 # 单次重规划内首次尝试的局部路径长度（米）
-    local_path_min_m: 2.0 # 单次重规划内最短尝试长度（米）
-    step: -1.0 # 单次重规划内长度递减步长；配置为 -1.0 表示 6->5->4...->1
-    control_point_interval: 0.3 # 相邻 B 样条控制点期望弧长间距（米），传入 PlannerInterfaceDog::pp_.ctrl_pt_dist，影响初始 ts
-    local_traj_duration: 1.0 # 单段局部轨迹时长（当前版本仅保留参数，尚未在dog_planner_node中实际使用）
-
-    # =============== 运动学约束 ===============
-    max_vel: 1.0 # 最大速度约束（单位：米/秒）
-    max_acc: 1.5 # 最大加速度约束（单位：米/秒^2）；四足机器狗加速能力有限，原值2.0偏大
-    max_jerk: 5.0 # 最大加加速度约束（单位：米/秒^3）
-
-    # =============== 优化器日志与重试控制 ===============
-    printfOpenOrNot: false # 是否开启优化器printf日志（true打印并计算刷新率，false不打印且不计算该段逻辑）
-    max_rebound_retries: 5 # 反弹优化被取消时的最大重试次数（现场止血建议 1~2，避免单次重规划卡很久）
-
-    # =============== 栅格地图参数 ===============
-    grid_map_size_m: 20.0 # 栅格地图边长（米）；以机器人为中心的正方形，原来200m太大导致400万格拖慢全局
-    grid_map_resolution: 0.1 # 栅格分辨率（米/格）；40m/0.1=400格 → 16万格（比原来400万格快25倍）
-    grid_inflate_radius: 0.45 # 障碍物膨胀半径（米）；机器狗外接圆半径约0.40m，加安全余量
-    astar_pool_size: 100 # A* 栅格池边长（板端内存紧张时可改为 50 或 60）
-    occupancy_publish_freq: -1.0 # OccupancyGrid发布频率（Hz）；-1表示跟随障碍更新频率（即每次更新都发布），设为2.0则最多2Hz
-
-    # =============== 点云TF转换与防呆过滤（统一到head_init） ===============
-    cloud_tf_timeout_ms: 100 # 点云TF查找超时时间（单位：毫秒），超时后尝试使用最近一次有效变换
-    # 点云时间戳早于 TF 缓冲最早时间（常见于激光与 /tf 时钟不同步）时，按时间戳 lookup 失败则改用「最新 TF」；根治需统一时间基，高速机动时此项略有误差
+    # Point-cloud filtering and TF policy.
+    cloud_tf_timeout_ms: 100
     cloud_tf_allow_latest_fallback: true
-    cloud_valid_x_abs_max: 20.0 # 点云转换到head_init后，x轴绝对值有效上限（单位：米）
-    cloud_valid_y_abs_max: 20.0 # 点云转换到head_init后，y轴绝对值有效上限（单位：米）
-    cloud_valid_z_min: 0.01 # 相对于机器人(odometry) z 坐标的最小偏移（单位：米），过滤地面点
-    cloud_valid_z_max: 1.0 # 相对于机器人(odometry) z 坐标的最大偏移（单位：米），过滤高空点
-    self_obstacle_clear_radius: 0.10 # 规划输入中剔除机器人自身附近障碍半径（米）；机器狗对角线约0.40m，需覆盖自身
-    cloud_tf_fallback_max_age_ms: 100 # TF查找失败时，允许复用历史TF的最大时差（毫秒）；收紧窗口可降低旧TF污染地图风险
+    cloud_tf_fallback_max_age_ms: 100
+    cloud_valid_x_abs_max: 10.0
+    cloud_valid_y_abs_max: 10.0
+    cloud_valid_z_min: 0.01
+    cloud_valid_z_max: 1.0
+    cloud_max_input_points: 1000000
+    safety.minimum_point_cloud_points: 10
 
-    # =============== 失败退避（防重规划风暴） ===============
-    max_consecutive_failures_before_cooldown: 3 # 连续规划失败达到该次数后，进入冷却
-    replan_failure_cooldown_ms: 200 # 冷却时长（毫秒），冷却期内跳过重规划
-    # 自首次 makePlan 失败起累计墙钟时间（秒），达到后每次失败发布「当前位姿原地停留」局部路径；重规划仍照常执行，成功则恢复运动；<=0 表示关闭该行为
-    if_continuously_plan_failed_time: 0.5
+    # Fail-safe behaviour. A stale obstacle stream never enables blind direct following.
+    safety.odometry_timeout_s: 0.5
+    safety.point_cloud_timeout_s: 0.5
+    safety.max_odometry_message_age_s: 0.5
+    safety.max_point_cloud_message_age_s: 0.5
+    safety.max_future_stamp_tolerance_s: 0.1
+    safety.max_cloud_odometry_skew_s: 0.1
+    safety.path_reuse_max_distance_m: 0.5
+    safety.require_fresh_obstacle_data: true
+    safety.failure_stop_timeout_s: 0.5
+    max_consecutive_failures_before_cooldown: 3
+    replan_failure_cooldown_ms: 200
+
+    # Safer default: an absent/invalid task is not reported as completed.
+    compatibility.legacy_no_path_is_reached: false

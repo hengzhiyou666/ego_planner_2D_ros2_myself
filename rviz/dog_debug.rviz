@@ -63,13 +63,13 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /dog_2Dmap_occupancy
+        Value: dog_2Dmap_occupancy
       Update Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /dog_2Dmap_occupancy_updates
+        Value: dog_2Dmap_occupancy_updates
       Use Timestamp: false
       Value: true
     - Alpha: 1
@@ -98,7 +98,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /dog_output_local_path
+        Value: dog_output_local_path
       Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz_default_plugins/Odometry
@@ -137,7 +137,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /odometry
+        Value: odometry
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -168,8 +168,8 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /lidar_points_filtered
+        Reliability Policy: Best Effort
+        Value: lidar_points_filtered
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -199,7 +199,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /dog_output_global_path_unfinished
+        Value: dog_output_global_path_unfinished
       Value: true
   Enabled: true
   Global Options:
