@@ -14,13 +14,15 @@
 
 ## dog3 构建环境
 
-dog3 的 ROS 2 安装位于 `/app/opt/ros/humble`，构建工具和 Eigen 由 `/userdata/1_slam/.deps` 提供。构建前使用：
+dog3 的 ROS 2 安装位于 `/app/opt/ros/humble`，构建工具和 Eigen 由 `/userdata/1_slam/.deps` 提供。不要只加载厂家 ROS 的 `setup.bash` 后直接编译；那会选中 Fast DDS，并在部分同款板端触发非标准 OpenSSL 路径问题。统一使用 SLAM 工作区提供的 dog3 环境脚本：
 
 ```bash
-source /app/opt/ros/humble/setup.bash
-source /userdata/1_slam/.deps/venv/bin/activate
-export Eigen3_DIR=/userdata/1_slam/.deps/root/usr/share/eigen3/cmake
+cd /userdata/5_egoplanner
+./build_on_dog.sh
 ```
+
+该脚本会加载 `/userdata/1_slam/setup_dog3_env.sh`，使用 dog3 实际部署的
+`rmw_zenoh_cpp`、板端 colcon/Eigen 依赖，清理旧路径构建缓存并在当前目录原生编译。
 
 板端没有 lint 可执行程序，因此板端验收可设置 `DOG_EGO_PLANNER_ENABLE_LINT=OFF`；完整 lint 仍由开发机和 CI 执行。
 

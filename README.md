@@ -3,7 +3,7 @@
 `dog_ego_planner` 是面向四足机器人/机器狗的 ROS 2 Humble 二维局部路径规划包。节点接收里程计、全局参考路径和点云，在二维占用栅格上进行局部重规划，并发布可供下游控制器跟踪的局部 `nav_msgs/Path`。
 
 > [!WARNING]
-> 本包不是完整导航栈，也不是运动控制器。它不发布速度指令，不负责执行器制动、物理急停、动态障碍预测或整机功能安全。`nav_msgs/Path` 不包含可直接执行的速度/时间约束。真机使用前必须完成仿真、rosbag 回放、架空低速和带物理急停的封闭场地测试。
+> 规划节点不是完整导航栈，也不发布速度指令。仓库同时安装一个默认双重锁定的配套路径跟踪控制器，但它不负责执行器制动、物理急停、动态障碍预测或整机功能安全。`nav_msgs/Path` 不包含可直接执行的速度/时间约束。真机使用前必须完成仿真、rosbag 回放、架空低速和带物理急停的封闭场地测试。
 
 ## 功能边界
 
@@ -64,16 +64,17 @@ source install/setup.bash
 ```
 
 脚本会自动识别本地和 dog3 的 ROS 2 Humble 安装目录，并加载当前工程的
-`install/setup.bash`。它只启动规划器，不启动 `dog_move_forward.py`，也不发布
-`/vel_cmd`。可以先执行 `./1_start_planner.sh --check`，只检查环境而不启动节点。
+`install/setup.bash`。dog3上会优先复用`/userdata/1_slam/setup_dog3_env.sh`，确保
+SLAM、规划器和控制器使用同一Zenoh环境。它只启动规划器，不启动
+`dog_move_forward.py`，也不发布速度命令。可以先执行`./1_start_planner.sh --check`，
+只检查环境而不启动节点。
 
 推荐入口：
 
 ```bash
 ros2 launch dog_ego_planner dog_ego_planner.launch.py \
   use_sim_time:=false \
-  launch_rviz:=false \
-  namespace:=dog3
+  launch_rviz:=false
 ```
 
 使用自定义参数文件：
@@ -99,26 +100,30 @@ Launch 参数：
 
 默认话题名使用相对名称，因此在根命名空间下仍解析为下表中的 `/...`，同时支持通过 ROS namespace 隔离多机器人实例。
 
+当前 dog3 自研链路使用根命名空间，启动时不要单独添加 `namespace:=dog3`。只有
+SLAM、路径发布器、规划器和控制器全部采用同一 namespace 或完成显式 remap 后，
+才能启用 namespace 隔离。
+
 ### 订阅
 
 | 参数 | 默认话题 | 类型 | 用途 |
 |---|---|---|---|
-| `topics.odom` | `/odometry` | `nav_msgs/msg/Odometry` | 当前位姿和速度 |
-| `topics.global_path` | `/pct_path` | `nav_msgs/msg/Path` | 全局参考路径 |
-| `topics.point_cloud` | `/lidar_points` | `sensor_msgs/msg/PointCloud2` | 障碍点云 |
+| `topics.odom` | `/location_now` | `nav_msgs/msg/Odometry` | 自研 SLAM 输出的当前位姿和速度 |
+| `topics.global_path` | `/pct_path_copy` | `nav_msgs/msg/Path` | 自研全局参考路径 |
+| `topics.point_cloud` | `/lidar_points_copy` | `sensor_msgs/msg/PointCloud2` | 转入自研坐标体系的障碍点云 |
 
 ### 发布
 
 | 参数 | 默认话题 | 类型 | 用途 |
 |---|---|---|---|
-| `topics.local_path` | `/dog_output_local_path` | `nav_msgs/msg/Path` | 下游控制器使用的局部几何路径 |
-| `topics.unfinished_global_path` | `/dog_output_global_path_unfinished` | `nav_msgs/msg/Path` | 尚未完成的全局路径段 |
-| `topics.filtered_point_cloud` | `/lidar_points_filtered` | `sensor_msgs/msg/PointCloud2` | 转换、过滤后的点云 |
-| `topics.occupancy_grid` | `/dog_2Dmap_occupancy` | `nav_msgs/msg/OccupancyGrid` | 二维规划栅格，编码为自由 `0`、占用 `100`、未知 `-1` |
-| `topics.goal_reached` | `/goal_reached` | `std_msgs/msg/Bool` | 规范的目标到达状态 |
-| `topics.goal_reached_legacy` | `/if_reach_the_goal` | `std_msgs/msg/Int32` | 旧接口兼容输出；新系统请使用 `/goal_reached` |
+| `topics.local_path` | `/dog_output_local_path_copy` | `nav_msgs/msg/Path` | 下游自研控制器使用的局部几何路径 |
+| `topics.unfinished_global_path` | `/dog_output_global_path_unfinished_copy` | `nav_msgs/msg/Path` | 尚未完成的全局路径段 |
+| `topics.filtered_point_cloud` | `/lidar_points_filtered_copy` | `sensor_msgs/msg/PointCloud2` | 转换、过滤后的点云 |
+| `topics.occupancy_grid` | `/dog_2Dmap_occupancy_copy` | `nav_msgs/msg/OccupancyGrid` | 二维规划栅格，编码为自由 `0`、占用 `100`、未知 `-1` |
+| `topics.goal_reached` | `/goal_reached_copy` | `std_msgs/msg/Bool` | 规范的目标到达状态 |
+| `topics.goal_reached_legacy` | `/if_reach_the_goal_copy` | `std_msgs/msg/Int32` | 旧接口兼容输出；新系统请使用 `/goal_reached_copy` |
 
-节点默认在 `planning_frame=head_init` 中规划。输入消息若不在该坐标系，必须能够通过 TF 转换；空 frame、无效四元数、过期/倒退的传感器时间戳以及超龄 TF 回退都会使节点进入停车状态。生产部署应确认时间源、TF 树和消息时间戳一致。
+节点默认在 `planning_frame=local_map_lidar_init` 中规划。输入消息若不在该坐标系，必须能够通过 TF 转换；空 frame、无效四元数、过期/倒退的传感器时间戳以及超龄 TF 回退都会使节点进入停车状态。`/dog_output_local_path_copy`、未完成全局路径、过滤点云和占据栅格等带坐标信息的规划输出都会使用该 `planning_frame`。生产部署应确认时间源、TF 树和消息时间戳一致。
 
 默认至少需要 10 个可正常变换的点云输入点，并要求点云与最近里程计时间差不超过 0.1 秒。空点云、全非有限点或时间不同步都会使规划器停止。该检查只能判断消息基本健康，不等同于通过功能安全认证的自由空间检测。
 
@@ -126,7 +131,9 @@ Launch 参数：
 
 旧 `Int32` 目标接口在“没有有效全局路径”时默认输出 `0`。如旧系统确实依赖原先的 `1`，可显式设置 `compatibility.legacy_no_path_is_reached=true`；生产使用前必须确认任务管理器不会把无效任务误判为完成。
 
-里程计默认使用 best-effort QoS，全局路径默认使用 reliable + transient-local QoS；如上游发布者策略不同，可分别通过 `odometry_use_best_effort_qos` 和 `pct_path_match_nav2_qos` 调整。
+自研定位话题`/location_now`默认使用 reliable QoS，全局路径`/pct_path_copy`默认使用 reliable + transient-local QoS；如上游发布者策略不同，可分别通过 `odometry_use_best_effort_qos` 和 `pct_path_match_nav2_qos` 调整。
+
+规划输入输出统一追加`_copy`，避免厂家SLAM、导航或App节点使用同名话题时混入自研链路。
 
 ## 参数兼容
 

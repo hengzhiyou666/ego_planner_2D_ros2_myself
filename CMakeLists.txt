@@ -181,6 +181,9 @@ enable_project_warnings(dog_planner_node)
 install(TARGETS dog_planner_node
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
+install(PROGRAMS dog_move_forward.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 install(DIRECTORY launch config rviz LICENSES
   DESTINATION share/${PROJECT_NAME}
   PATTERN "__pycache__" EXCLUDE
@@ -189,7 +192,7 @@ install(DIRECTORY launch config rviz LICENSES
 install(FILES README.md CHANGELOG.rst CONTRIBUTING.md LICENSE
   DESTINATION share/${PROJECT_NAME}
 )
-install(FILES docs/DEPLOYMENT_DOG3.md
+install(FILES docs/DEPLOYMENT_DOG3.md docs/MOVEFORWARD_DOG3.md
   DESTINATION share/${PROJECT_NAME}/docs
 )
 install(PROGRAMS scripts/test_isolated.sh
@@ -198,6 +201,7 @@ install(PROGRAMS scripts/test_isolated.sh
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
   find_package(launch_testing_ament_cmake REQUIRED)
 
   if(DOG_EGO_PLANNER_ENABLE_LINT)
@@ -241,7 +245,13 @@ if(BUILD_TESTING)
       MAX_LINE_LENGTH 120
     )
     ament_uncrustify(${first_party_cxx_files} MAX_LINE_LENGTH 120)
-    ament_flake8(launch test/test_launch.py test/test_node_integration.py)
+    ament_flake8(
+      dog_move_forward.py
+      launch
+      test/test_dog_move_forward.py
+      test/test_launch.py
+      test/test_node_integration.py
+    )
     ament_pep257(launch test/test_launch.py test/test_node_integration.py)
     ament_lint_cmake(CMakeLists.txt)
     ament_xmllint(package.xml)
@@ -288,6 +298,14 @@ if(BUILD_TESTING)
 
   add_launch_test(test/test_launch.py TIMEOUT 30)
   add_launch_test(test/test_node_integration.py TIMEOUT 30)
+  ament_add_pytest_test(
+    test_dog_move_forward
+    test/test_dog_move_forward.py
+    TIMEOUT 30
+    ENV
+      "MOVEFORWARD_RUN_ROS_TEST=1"
+      "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1"
+  )
 
   set(isolated_test_environment
     "ROS_DOMAIN_ID=232"
@@ -304,6 +322,7 @@ if(BUILD_TESTING)
     test_bspline
     test_test_launch.py
     test_test_node_integration.py
+    test_dog_move_forward
     PROPERTIES ENVIRONMENT "${isolated_test_environment}"
   )
 endif()

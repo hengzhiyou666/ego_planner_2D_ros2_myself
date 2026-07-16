@@ -12,7 +12,7 @@ import time
 import unittest
 
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry, Path
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
@@ -119,24 +119,24 @@ class IsolatedRosTest(unittest.TestCase):
                 Parameter("path_topic", value=self.path_topic),
                 Parameter("goal_reached_topic", value=self.goal_topic),
                 Parameter("velocity_topic", value=self.velocity_topic),
-                Parameter("expected_frame", value="head_init"),
+                Parameter("expected_frame", value="local_map_lidar_init"),
                 Parameter("require_velocity_subscriber", value=True),
             ]
         )
 
-    def publish_inputs(self):
+    def publish_inputs(self, frame="local_map_lidar_init"):
         stamp = self.driver.get_clock().now().to_msg()
         odometry = Odometry()
         odometry.header.stamp = stamp
-        odometry.header.frame_id = "head_init"
+        odometry.header.frame_id = frame
         odometry.pose.pose.orientation.w = 1.0
         path = Path()
         path.header.stamp = stamp
-        path.header.frame_id = "head_init"
+        path.header.frame_id = frame
         for x in (0.0, 1.0, 2.0):
-            pose = __import__("geometry_msgs.msg", fromlist=["PoseStamped"]).PoseStamped()
+            pose = PoseStamped()
             pose.header.stamp = stamp
-            pose.header.frame_id = "head_init"
+            pose.header.frame_id = frame
             pose.pose.position.x = x
             pose.pose.orientation.w = 1.0
             path.poses.append(pose)
@@ -159,18 +159,108 @@ class IsolatedRosTest(unittest.TestCase):
         finally:
             controller.destroy_node()
 
+    def test_default_interface_is_independent_from_vendor_velocity(self):
+        controller = VbotPathFollower()
+        try:
+            self.assertEqual(
+                controller.get_parameter("odom_topic").value,
+                "/location_now",
+            )
+            self.assertEqual(
+                controller.get_parameter("path_topic").value,
+                "/dog_output_local_path_copy",
+            )
+            self.assertEqual(
+                controller.get_parameter("velocity_topic").value,
+                "/vel_cmd_copy",
+            )
+            self.assertEqual(
+                controller.get_parameter("expected_frame").value,
+                "local_map_lidar_init",
+            )
+            self.assertFalse(controller.get_parameter("enabled").value)
+            self.assertTrue(controller.get_parameter("dry_run").value)
+        finally:
+            controller.destroy_node()
+
+    def test_duplicate_controller_identity_is_detected(self):
+        controller = self.make_controller(enabled=False, dry_run=True)
+        duplicate = rclpy.create_node(
+            controller.get_name(), namespace=controller.get_namespace()
+        )
+        duplicate.create_publisher(Twist, self.velocity_topic, 10)
+        try:
+            deadline = time.monotonic() + 2.0
+            detected = False
+            while time.monotonic() < deadline and not detected:
+                rclpy.spin_once(controller, timeout_sec=0.02)
+                rclpy.spin_once(duplicate, timeout_sec=0.02)
+                detected = controller._has_other_velocity_publishers()
+            self.assertTrue(detected)
+        finally:
+            duplicate.destroy_node()
+            controller.destroy_node()
+
     def test_armed_controller_stops_on_empty_path(self):
         controller = self.make_controller(enabled=True, dry_run=False)
         try:
             self.spin_pair(controller, duration=0.8, publish_inputs=True)
-            self.assertTrue(any(command.linear.x > 0.0 for command in self.commands))
+            self.assertTrue(
+                any(command.linear.x > 0.0 for command in self.commands)
+            )
 
             empty_path = Path()
             empty_path.header.stamp = self.driver.get_clock().now().to_msg()
-            empty_path.header.frame_id = "head_init"
+            empty_path.header.frame_id = "local_map_lidar_init"
             self.path_publisher.publish(empty_path)
             self.spin_pair(controller, duration=0.5)
-            self.assertTrue(any(command.linear.x == 0.0 for command in self.commands))
+            self.assertTrue(
+                any(command.linear.x == 0.0 for command in self.commands)
+            )
+        finally:
+            controller.stop_before_shutdown()
+            controller.destroy_node()
+
+    def test_armed_controller_stops_on_frame_mismatch(self):
+        controller = self.make_controller(enabled=True, dry_run=False)
+        try:
+            self.spin_pair(controller, duration=0.6, publish_inputs=True)
+            self.assertTrue(
+                any(command.linear.x > 0.0 for command in self.commands)
+            )
+
+            first_new_command = len(self.commands)
+            deadline = time.monotonic() + 0.4
+            while time.monotonic() < deadline:
+                self.publish_inputs(frame="wrong_frame")
+                rclpy.spin_once(self.driver, timeout_sec=0.01)
+                rclpy.spin_once(controller, timeout_sec=0.01)
+            self.assertTrue(
+                any(
+                    command.linear.x == 0.0
+                    for command in self.commands[first_new_command:]
+                )
+            )
+        finally:
+            controller.stop_before_shutdown()
+            controller.destroy_node()
+
+    def test_armed_controller_stops_when_inputs_expire(self):
+        controller = self.make_controller(enabled=True, dry_run=False)
+        try:
+            self.spin_pair(controller, duration=0.6, publish_inputs=True)
+            self.assertTrue(
+                any(command.linear.x > 0.0 for command in self.commands)
+            )
+
+            first_new_command = len(self.commands)
+            self.spin_pair(controller, duration=0.8)
+            self.assertTrue(
+                any(
+                    command.linear.x == 0.0
+                    for command in self.commands[first_new_command:]
+                )
+            )
         finally:
             controller.stop_before_shutdown()
             controller.destroy_node()

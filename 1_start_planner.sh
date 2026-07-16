@@ -54,23 +54,26 @@ case "${1:-}" in
     ;;
 esac
 
-# ros_setup 用来保存 ROS 2 环境文件的位置。
-ros_setup=""
+# runtime_setup 用来保存统一运行环境文件的位置。
+runtime_setup=""
 
 # dog3 和本地电脑的 ROS 2 安装位置不同：
 # dog3：/app/opt/ros/humble/setup.bash
 # 本地：/opt/ros/humble/setup.bash
 # 下面的循环会自动寻找，找到第一个存在的文件就停止寻找。
-for candidate in /app/opt/ros/humble/setup.bash /opt/ros/humble/setup.bash; do
+for candidate in \
+  /userdata/1_slam/setup_dog3_env.sh \
+  /app/opt/ros/humble/setup.bash \
+  /opt/ros/humble/setup.bash; do
   if [[ -f "${candidate}" ]]; then
-    ros_setup="${candidate}"
+    runtime_setup="${candidate}"
     break
   fi
 done
 
 # 如果两个位置都没有找到 ROS 2，就显示错误并结束。
-if [[ -z "${ros_setup}" ]]; then
-  echo "未找到 ROS 2 Humble setup.bash。" >&2
+if [[ -z "${runtime_setup}" ]]; then
+  echo "未找到 dog3 统一环境脚本或 ROS 2 Humble setup.bash。" >&2
   exit 1
 fi
 
@@ -85,7 +88,7 @@ fi
 # 第一条 source 加载 ROS 2，第二条 source 加载当前规划工程。
 # ROS 2 环境文件可能使用尚未定义的变量，所以 source 时暂时关闭变量严格检查。
 set +u
-source "${ros_setup}"
+source "${runtime_setup}"
 source "${REPO_ROOT}/install/setup.bash"
 set -u
 
@@ -96,7 +99,7 @@ package_prefix="$(ros2 pkg prefix dog_ego_planner)"
 # 如果用户输入了 --check，到这里说明环境没有问题。
 # 只显示检查结果，然后退出，不会启动任何 ROS 节点。
 if [[ "${check_only}" == true ]]; then
-  echo "ROS 环境：${ros_setup}"
+  echo "运行环境：${runtime_setup}"
   echo "工程目录：${REPO_ROOT}"
   echo "包安装目录：${package_prefix}"
   echo "启动环境检查通过；没有启动节点。"

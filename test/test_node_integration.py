@@ -23,6 +23,7 @@ from std_msgs.msg import Bool, Int32
 
 
 TEST_NAMESPACE = "planner_integration"
+PLANNING_FRAME = "local_map_lidar_init"
 
 
 def generate_test_description():
@@ -33,7 +34,7 @@ def generate_test_description():
         name="dog_ego_planner",
         parameters=[
             {
-                "planning_frame": "head_init",
+                "planning_frame": PLANNING_FRAME,
                 "replan_freq": 20.0,
                 "goal_threshold": 0.2,
                 "local_path_max_m": 3.0,
@@ -76,19 +77,21 @@ class TestPlannerScenarios(unittest.TestCase):
         cls.node = rclpy.create_node("dog_ego_planner_integration_client")
         sensor_qos = QoSProfile(depth=10)
         sensor_qos.reliability = ReliabilityPolicy.BEST_EFFORT
+        odometry_qos = QoSProfile(depth=10)
+        odometry_qos.reliability = ReliabilityPolicy.RELIABLE
         transient_qos = QoSProfile(depth=1)
         transient_qos.reliability = ReliabilityPolicy.RELIABLE
         transient_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
 
         prefix = f"/{TEST_NAMESPACE}"
         cls.odom_publisher = cls.node.create_publisher(
-            Odometry, f"{prefix}/odometry", sensor_qos
+            Odometry, f"{prefix}/location_now", odometry_qos
         )
         cls.path_publisher = cls.node.create_publisher(
-            Path, f"{prefix}/pct_path", transient_qos
+            Path, f"{prefix}/pct_path_copy", transient_qos
         )
         cls.cloud_publisher = cls.node.create_publisher(
-            PointCloud2, f"{prefix}/lidar_points", sensor_qos
+            PointCloud2, f"{prefix}/lidar_points_copy", sensor_qos
         )
 
         cls.local_paths = []
@@ -99,31 +102,31 @@ class TestPlannerScenarios(unittest.TestCase):
         cls.subscriptions = [
             cls.node.create_subscription(
                 Path,
-                f"{prefix}/dog_output_local_path",
+                f"{prefix}/dog_output_local_path_copy",
                 cls.local_paths.append,
                 transient_qos,
             ),
             cls.node.create_subscription(
                 Path,
-                f"{prefix}/dog_output_global_path_unfinished",
+                f"{prefix}/dog_output_global_path_unfinished_copy",
                 cls.unfinished_paths.append,
                 transient_qos,
             ),
             cls.node.create_subscription(
                 Bool,
-                f"{prefix}/goal_reached",
+                f"{prefix}/goal_reached_copy",
                 cls.goal_states.append,
                 transient_qos,
             ),
             cls.node.create_subscription(
                 Int32,
-                f"{prefix}/if_reach_the_goal",
+                f"{prefix}/if_reach_the_goal_copy",
                 cls.legacy_goal_states.append,
                 transient_qos,
             ),
             cls.node.create_subscription(
                 OccupancyGrid,
-                f"{prefix}/dog_2Dmap_occupancy",
+                f"{prefix}/dog_2Dmap_occupancy_copy",
                 cls.occupancy_grids.append,
                 transient_qos,
             ),
@@ -159,7 +162,7 @@ class TestPlannerScenarios(unittest.TestCase):
             rclpy.spin_once(self.node, timeout_sec=0.02)
             time.sleep(0.02)
 
-    def make_odometry(self, x, y=0.0, yaw=0.0, frame="head_init"):
+    def make_odometry(self, x, y=0.0, yaw=0.0, frame=PLANNING_FRAME):
         message = Odometry()
         message.header.frame_id = frame
         message.header.stamp = self.node.get_clock().now().to_msg()
@@ -169,7 +172,7 @@ class TestPlannerScenarios(unittest.TestCase):
         message.pose.pose.orientation.w = math.cos(yaw * 0.5)
         return message
 
-    def make_path(self, points, frame="head_init"):
+    def make_path(self, points, frame=PLANNING_FRAME):
         message = Path()
         message.header.frame_id = frame
         message.header.stamp = self.node.get_clock().now().to_msg()
@@ -184,7 +187,7 @@ class TestPlannerScenarios(unittest.TestCase):
 
     def make_cloud(self, points):
         message = PointCloud2()
-        message.header.frame_id = "head_init"
+        message.header.frame_id = PLANNING_FRAME
         message.header.stamp = self.node.get_clock().now().to_msg()
         message.height = 1
         message.width = len(points)
@@ -235,6 +238,13 @@ class TestPlannerScenarios(unittest.TestCase):
             sum(self.is_moving_path(path) for path in self.local_paths),
             moving_count,
         )
+        self.assertEqual(self.local_paths[-1].header.frame_id, PLANNING_FRAME)
+        self.assertTrue(
+            all(
+                pose.header.frame_id == PLANNING_FRAME
+                for pose in self.local_paths[-1].poses
+            )
+        )
 
         clear_observation = [
             (4.0, 3.0 + 0.05 * index, 0.5) for index in range(10)
@@ -262,6 +272,7 @@ class TestPlannerScenarios(unittest.TestCase):
                 and 0 in self.occupancy_grids[-1].data
             )
         )
+        self.assertEqual(self.occupancy_grids[-1].header.frame_id, PLANNING_FRAME)
 
         stop_count = sum(self.is_stop_path(path) for path in self.local_paths)
         wall = [(1.0, -5.0 + 0.25 * index, 0.5) for index in range(41)]
@@ -297,6 +308,7 @@ class TestPlannerScenarios(unittest.TestCase):
                 lambda: self.unfinished_paths and not self.unfinished_paths[-1].poses
             )
         )
+        self.assertEqual(self.unfinished_paths[-1].header.frame_id, PLANNING_FRAME)
         self.assertTrue(self.is_stop_path(self.local_paths[-1]))
         self.assertTrue(
             self.spin_until(
