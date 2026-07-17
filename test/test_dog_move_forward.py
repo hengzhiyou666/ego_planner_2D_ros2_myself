@@ -119,12 +119,12 @@ class IsolatedRosTest(unittest.TestCase):
                 Parameter("path_topic", value=self.path_topic),
                 Parameter("goal_reached_topic", value=self.goal_topic),
                 Parameter("velocity_topic", value=self.velocity_topic),
-                Parameter("expected_frame", value="local_map_lidar_init"),
+                Parameter("expected_frame", value="local_map_lidar_init_xyz"),
                 Parameter("require_velocity_subscriber", value=True),
             ]
         )
 
-    def publish_inputs(self, frame="local_map_lidar_init"):
+    def publish_inputs(self, frame="local_map_lidar_init_xyz"):
         stamp = self.driver.get_clock().now().to_msg()
         odometry = Odometry()
         odometry.header.stamp = stamp
@@ -176,7 +176,7 @@ class IsolatedRosTest(unittest.TestCase):
             )
             self.assertEqual(
                 controller.get_parameter("expected_frame").value,
-                "local_map_lidar_init",
+                "local_map_lidar_init_xyz",
             )
             self.assertFalse(controller.get_parameter("enabled").value)
             self.assertTrue(controller.get_parameter("dry_run").value)
@@ -211,7 +211,7 @@ class IsolatedRosTest(unittest.TestCase):
 
             empty_path = Path()
             empty_path.header.stamp = self.driver.get_clock().now().to_msg()
-            empty_path.header.frame_id = "local_map_lidar_init"
+            empty_path.header.frame_id = "local_map_lidar_init_xyz"
             self.path_publisher.publish(empty_path)
             self.spin_pair(controller, duration=0.5)
             self.assertTrue(

@@ -245,7 +245,7 @@ private:
     maximum_rebound_retries_ = declare_parameter<int>("max_rebound_retries", 3);
 
     planning_frame_ = declare_parameter<std::string>(
-      "planning_frame", "local_map_lidar_init");
+      "planning_frame", "local_map_lidar_init_xyz");
     transform_timeout_ms_ = declare_parameter<int>("cloud_tf_timeout_ms", 100);
     transform_fallback_maximum_age_ms_ =
       declare_parameter<int>("cloud_tf_fallback_max_age_ms", 100);
@@ -1537,7 +1537,7 @@ private:
   double maximum_jerk_{5.0};
   bool optimizer_logging_{false};
   int maximum_rebound_retries_{3};
-  std::string planning_frame_{"local_map_lidar_init"};
+  std::string planning_frame_{"local_map_lidar_init_xyz"};
   int transform_timeout_ms_{100};
   int transform_fallback_maximum_age_ms_{100};
   bool allow_latest_transform_fallback_{true};

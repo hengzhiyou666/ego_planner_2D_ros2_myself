@@ -11,7 +11,7 @@
     topics.occupancy_grid: "dog_2Dmap_occupancy_copy"
     topics.goal_reached_legacy: "if_reach_the_goal_copy"
     topics.goal_reached: "goal_reached_copy"
-    planning_frame: "local_map_lidar_init"
+    planning_frame: "local_map_lidar_init_xyz"
 
     # /location_now is published reliably by the self-SLAM localization bridge.
     odometry_use_best_effort_qos: false

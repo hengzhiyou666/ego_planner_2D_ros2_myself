@@ -23,7 +23,7 @@ from std_msgs.msg import Bool, Int32
 
 
 TEST_NAMESPACE = "planner_integration"
-PLANNING_FRAME = "local_map_lidar_init"
+PLANNING_FRAME = "local_map_lidar_init_xyz"
 
 
 def generate_test_description():

@@ -285,7 +285,7 @@ class VbotPathFollower(Node):
         )
         self.expected_frame = str(
             self.declare_parameter(
-                "expected_frame", "local_map_lidar_init"
+                "expected_frame", "local_map_lidar_init_xyz"
             ).value
         )
 

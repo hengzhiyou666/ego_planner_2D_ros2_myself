@@ -53,7 +53,7 @@ TEST_F(NodeParameterTest, UsesPortableDefaultRosInterface)
 
   EXPECT_EQ(node->get_parameter("topics.odom").as_string(), "location_now");
   EXPECT_EQ(node->get_parameter("topics.point_cloud").as_string(), "lidar_points_copy");
-  EXPECT_EQ(node->get_parameter("planning_frame").as_string(), "local_map_lidar_init");
+  EXPECT_EQ(node->get_parameter("planning_frame").as_string(), "local_map_lidar_init_xyz");
   EXPECT_FALSE(node->get_parameter("odometry_use_best_effort_qos").as_bool());
   EXPECT_EQ(
     node->get_node_topics_interface()->resolve_topic_name(
