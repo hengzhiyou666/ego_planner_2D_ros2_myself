@@ -6,6 +6,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -23,6 +24,7 @@ def generate_launch_description():
     launch_rviz = LaunchConfiguration("launch_rviz")
     namespace = LaunchConfiguration("namespace")
     node_name = LaunchConfiguration("node_name")
+    odometry_topic = LaunchConfiguration("odometry_topic")
 
     return LaunchDescription(
         [
@@ -51,13 +53,26 @@ def generate_launch_description():
                 default_value="dog_ego_planner",
                 description="ROS node name; the executable name remains unchanged.",
             ),
+            DeclareLaunchArgument(
+                "odometry_topic",
+                default_value="lidar_location_now",
+                description="Current LiDAR pose topic produced by self localization.",
+            ),
             Node(
                 package="dog_ego_planner",
                 executable="dog_planner_node",
                 namespace=namespace,
                 name=node_name,
                 output="screen",
-                parameters=[params_file, {"use_sim_time": use_sim_time}],
+                parameters=[
+                    params_file,
+                    {
+                        "use_sim_time": use_sim_time,
+                        "topics.odom": ParameterValue(
+                            odometry_topic, value_type=str
+                        ),
+                    },
+                ],
             ),
             Node(
                 package="rviz2",

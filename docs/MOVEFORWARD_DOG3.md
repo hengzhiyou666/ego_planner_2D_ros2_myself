@@ -25,13 +25,13 @@
 默认接口为：
 
 ```text
-odom_topic=/location_now
+odom_topic=/lidar_location_now
 path_topic=/dog_output_local_path_copy
 expected_frame=local_map_lidar_init_xyz
 velocity_topic=/vel_cmd_copy
 ```
 
-`/location_now` 与 `/dog_output_local_path_copy` 必须使用同一个
+`/lidar_location_now` 与 `/dog_output_local_path_copy` 必须使用同一个
 `local_map_lidar_init_xyz` 坐标系；任一输入超时、frame 不一致或消息时间戳异常都会触发停车。
 
 运行 Python ROS 2 程序前必须加载：

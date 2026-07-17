@@ -24,6 +24,7 @@ def generate_launch_description():
     launch_rviz = LaunchConfiguration("launch_rviz")
     namespace = LaunchConfiguration("namespace")
     node_name = LaunchConfiguration("node_name")
+    odometry_topic = LaunchConfiguration("odometry_topic")
 
     return LaunchDescription(
         [
@@ -32,6 +33,9 @@ def generate_launch_description():
             DeclareLaunchArgument("launch_rviz", default_value="false"),
             DeclareLaunchArgument("namespace", default_value=""),
             DeclareLaunchArgument("node_name", default_value="dog_ego_planner"),
+            DeclareLaunchArgument(
+                "odometry_topic", default_value="lidar_location_now"
+            ),
             LogInfo(
                 msg=(
                     "robot_launch.py is deprecated; use "
@@ -46,6 +50,7 @@ def generate_launch_description():
                     "launch_rviz": launch_rviz,
                     "namespace": namespace,
                     "node_name": node_name,
+                    "odometry_topic": odometry_topic,
                 }.items(),
             ),
         ]

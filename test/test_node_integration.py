@@ -85,7 +85,7 @@ class TestPlannerScenarios(unittest.TestCase):
 
         prefix = f"/{TEST_NAMESPACE}"
         cls.odom_publisher = cls.node.create_publisher(
-            Odometry, f"{prefix}/location_now", odometry_qos
+            Odometry, f"{prefix}/lidar_location_now", odometry_qos
         )
         cls.path_publisher = cls.node.create_publisher(
             Path, f"{prefix}/pct_path_copy", transient_qos

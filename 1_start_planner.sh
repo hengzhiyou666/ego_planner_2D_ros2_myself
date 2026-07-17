@@ -19,6 +19,24 @@ set -eo pipefail
 # dog3 示例：/userdata/5_egoplanner
 readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+# 规划器从0号适配层读取自研定位话题，避免在多个工程中分别维护名称。
+if [[ -n "${TOPIC_FRAME_ADAPTER_DIR:-}" ]]; then
+  ADAPTER_DIR="$TOPIC_FRAME_ADAPTER_DIR"
+elif [[ -d /userdata/0_topic_name_frame_adapter ]]; then
+  ADAPTER_DIR=/userdata/0_topic_name_frame_adapter
+else
+  ADAPTER_DIR="$(cd "$REPO_ROOT/.." && pwd)/0_topic_name_frame_adapter"
+fi
+if [[ ! -x "$ADAPTER_DIR/adapter_profile.py" ]]; then
+  echo "错误：缺少0号适配配置：$ADAPTER_DIR/adapter_profile.py" >&2
+  exit 2
+fi
+if ! profile_exports="$(python3 "$ADAPTER_DIR/adapter_profile.py" shell)"; then
+  echo "错误：无法读取0号适配配置。" >&2
+  exit 2
+fi
+eval "$profile_exports"
+
 # 当用户输入 --help 时，这个函数负责显示帮助文字。
 usage() {
   cat <<'EOF'
@@ -102,6 +120,7 @@ if [[ "${check_only}" == true ]]; then
   echo "运行环境：${runtime_setup}"
   echo "工程目录：${REPO_ROOT}"
   echo "包安装目录：${package_prefix}"
+  echo "雷达地图当前位置：${ADAPTER_LOCATION_TOPIC}"
   echo "启动环境检查通过；没有启动节点。"
   exit 0
 fi
@@ -112,4 +131,15 @@ echo "启动 dog_ego_planner（包目录：${package_prefix}）"
 # "$@" 表示把用户输入的其他参数继续交给 ros2 launch。
 # 例如输入 launch_rviz:=true，就会继续传给 launch 文件。
 # exec 表示让当前脚本进程直接变成规划器启动进程，按 Ctrl+C 时也更容易正常退出。
-exec ros2 launch dog_ego_planner dog_ego_planner.launch.py "$@"
+launch_arguments=("$@")
+odometry_topic_overridden=false
+for argument in "${launch_arguments[@]}"; do
+  if [[ "$argument" == odometry_topic:=* ]]; then
+    odometry_topic_overridden=true
+    break
+  fi
+done
+if [[ "$odometry_topic_overridden" == false ]]; then
+  launch_arguments=("odometry_topic:=$ADAPTER_LOCATION_TOPIC" "${launch_arguments[@]}")
+fi
+exec ros2 launch dog_ego_planner dog_ego_planner.launch.py "${launch_arguments[@]}"

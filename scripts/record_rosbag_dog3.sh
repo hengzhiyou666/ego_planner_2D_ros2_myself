@@ -68,7 +68,7 @@ publisher_count() {
 }
 
 echo "正在检查自研SLAM核心话题是否有真实发布者，请稍候……"
-location_publishers="$(publisher_count /location_now)"
+location_publishers="$(publisher_count /lidar_location_now)"
 mapping_publishers="$(publisher_count /state_estimation_copy)"
 imu_publishers="$(publisher_count /lidar_imu_copy)"
 lidar_publishers="$(publisher_count /lidar_points_copy)"
@@ -77,7 +77,7 @@ mapping_publishers="${mapping_publishers:-0}"
 imu_publishers="${imu_publishers:-0}"
 lidar_publishers="${lidar_publishers:-0}"
 
-echo "定位全局位姿 /location_now：${location_publishers} 个发布者"
+echo "雷达定位全局位姿 /lidar_location_now：${location_publishers} 个发布者"
 echo "建图位姿 /state_estimation_copy：${mapping_publishers} 个发布者"
 echo "适配雷达 IMU /lidar_imu_copy：${imu_publishers} 个发布者"
 echo "规划点云      /lidar_points_copy：${lidar_publishers} 个发布者"
@@ -101,7 +101,7 @@ fi
 # 5. 操作输入：速度命令、遥控器、目标点和初始位姿；
 # 6. 当前规划工程的输入输出及 ROS 日志/参数事件。
 # 使用正则表达式后，即使某个节点稍晚启动，其匹配的话题也会自动加入录制。
-readonly STANDARD_TOPIC_REGEX='^/(odometry|location_now|state_estimation|state_estimation_copy|odometry_copy|lidar_imu|lidar_imu_copy|imu_raw|imu_raw_x5|lidar_points|lidar_points_copy|lidar_packets|lidar_device_ctrl_state|tf|tf_static|path|path_copy|cloud_registered|cloud_registered_copy|cloud_registered_body|cloud_registered_body_copy|cloud_effected|cloud_effected_copy|Laser_map|Laser_map_copy|ikd_tree_copy|map|map_metadata|scan|slam/status|navigation_status|locomotion/status|vel_cmd|vel_cmd_copy|joy|gnss/fix|gnss/fusion|initialpose|initialpose_copy|goal_pose|clicked_point|icp_result|icp_result_copy|prior_map_copy|transformed_cloud_copy|relocalization_result|pct_path|pct_path_copy|dog_output_local_path|dog_output_local_path_copy|dog_output_global_path_unfinished|dog_output_global_path_unfinished_copy|goal_reached|goal_reached_copy|if_reach_the_goal|if_reach_the_goal_copy|dog_2Dmap_occupancy|dog_2Dmap_occupancy_copy|lidar_points_filtered|lidar_points_filtered_copy|diagnostics|diagnostics_agg|parameter_events|rosout)$'
+readonly STANDARD_TOPIC_REGEX='^/(odometry|lidar_location_now|state_estimation|state_estimation_copy|odometry_copy|lidar_imu|lidar_imu_copy|imu_raw|imu_raw_x5|lidar_points|lidar_points_copy|lidar_packets|lidar_device_ctrl_state|tf|tf_static|path|path_copy|cloud_registered|cloud_registered_copy|cloud_registered_body|cloud_registered_body_copy|cloud_effected|cloud_effected_copy|Laser_map|Laser_map_copy|ikd_tree_copy|map|map_metadata|scan|slam/status|navigation_status|locomotion/status|vel_cmd|vel_cmd_copy|joy|gnss/fix|gnss/fusion|initialpose|initialpose_copy|goal_pose|clicked_point|icp_result|icp_result_copy|prior_map_copy|transformed_cloud_copy|relocalization_result|pct_path|pct_path_copy|dog_output_local_path|dog_output_local_path_copy|dog_output_global_path_unfinished|dog_output_global_path_unfinished_copy|goal_reached|goal_reached_copy|if_reach_the_goal|if_reach_the_goal_copy|dog_2Dmap_occupancy|dog_2Dmap_occupancy_copy|lidar_points_filtered|lidar_points_filtered_copy|diagnostics|diagnostics_agg|parameter_events|rosout)$'
 
 timestamp="$(date '+%Y%m%d_%H%M%S')"
 bag_prefix="${BAG_PREFIX:-slam_nav}"

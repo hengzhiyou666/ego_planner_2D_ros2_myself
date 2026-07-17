@@ -2,7 +2,7 @@
   ros__parameters:
     # ROS graph interface. Relative topic names remain identical in the root namespace
     # and allow the node to be placed under a robot namespace.
-    topics.odom: "location_now"
+    topics.odom: "lidar_location_now"
     topics.global_path: "pct_path_copy"
     topics.point_cloud: "lidar_points_copy"
     topics.filtered_point_cloud: "lidar_points_filtered_copy"
@@ -13,7 +13,7 @@
     topics.goal_reached: "goal_reached_copy"
     planning_frame: "local_map_lidar_init_xyz"
 
-    # /location_now is published reliably by the self-SLAM localization bridge.
+    # /lidar_location_now is published reliably by the self-SLAM localization bridge.
     odometry_use_best_effort_qos: false
     pct_path_match_nav2_qos: true
 

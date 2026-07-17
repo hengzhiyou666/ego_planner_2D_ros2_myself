@@ -268,7 +268,7 @@ class VbotPathFollower(Node):
         self.enabled = bool(self.declare_parameter("enabled", False).value)
         self.dry_run = bool(self.declare_parameter("dry_run", True).value)
         self.odom_topic = str(
-            self.declare_parameter("odom_topic", "/location_now").value
+            self.declare_parameter("odom_topic", "/lidar_location_now").value
         )
         self.path_topic = str(
             self.declare_parameter(

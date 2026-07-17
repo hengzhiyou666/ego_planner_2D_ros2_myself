@@ -326,7 +326,7 @@ private:
       declare_parameter<bool>("safety.require_fresh_obstacle_data", true);
 
     odometry_topic_ = declareCompatibleParameter<std::string>(
-      "topics.odom", "topic_odom", "location_now");
+      "topics.odom", "topic_odom", "lidar_location_now");
     global_path_topic_ = declareCompatibleParameter<std::string>(
       "topics.global_path", "topic_pct_path", "pct_path_copy");
     point_cloud_topic_ = declareCompatibleParameter<std::string>(
@@ -1570,7 +1570,7 @@ private:
   double maximum_cloud_odometry_skew_{0.1};
   double path_reuse_maximum_distance_{0.5};
   bool require_fresh_obstacle_data_{true};
-  std::string odometry_topic_{"location_now"};
+  std::string odometry_topic_{"lidar_location_now"};
   std::string global_path_topic_{"pct_path_copy"};
   std::string point_cloud_topic_{"lidar_points_copy"};
   std::string filtered_cloud_topic_{"lidar_points_filtered_copy"};

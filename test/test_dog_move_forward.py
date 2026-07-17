@@ -164,7 +164,7 @@ class IsolatedRosTest(unittest.TestCase):
         try:
             self.assertEqual(
                 controller.get_parameter("odom_topic").value,
-                "/location_now",
+                "/lidar_location_now",
             )
             self.assertEqual(
                 controller.get_parameter("path_topic").value,
