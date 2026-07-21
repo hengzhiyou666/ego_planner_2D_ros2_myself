@@ -4,17 +4,17 @@
 set -euo pipefail
 
 readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-readonly DOG_ENV="/userdata/1_slam/setup_dog3_env.sh"
+readonly DOG_ENV="/userdata/2_slam/setup_dog3_env.sh"
 
 if [[ ! -f "${DOG_ENV}" ]]; then
-  echo "未找到 ${DOG_ENV}；请先部署并编译 /userdata/1_slam。" >&2
+  echo "未找到 ${DOG_ENV}；请先部署并编译 /userdata/2_slam。" >&2
   exit 2
 fi
 
 # dog3的ROS依赖、colcon、Eigen和默认rmw_zenoh_cpp由SLAM工作区统一提供。
 # shellcheck disable=SC1091
 source "${DOG_ENV}"
-export Eigen3_DIR="/userdata/1_slam/.deps/root/usr/share/eigen3/cmake"
+export Eigen3_DIR="/userdata/2_slam/.deps/root/usr/share/eigen3/cmake"
 
 cd -- "${REPO_ROOT}"
 rm -rf -- build install log

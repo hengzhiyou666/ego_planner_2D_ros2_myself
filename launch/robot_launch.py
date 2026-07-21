@@ -34,7 +34,8 @@ def generate_launch_description():
             DeclareLaunchArgument("namespace", default_value=""),
             DeclareLaunchArgument("node_name", default_value="dog_ego_planner"),
             DeclareLaunchArgument(
-                "odometry_topic", default_value="lidar_location_now"
+                "odometry_topic",
+                default_value="/relocalizing/map_frame/odometry",
             ),
             LogInfo(
                 msg=(

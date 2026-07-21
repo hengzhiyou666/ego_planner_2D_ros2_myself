@@ -16,7 +16,7 @@ namespace dog_ego_planner
 
 struct PointCloudFilterConfig
 {
-  std::string planning_frame{"local_map_lidar_init_xyz"};
+  std::string planning_frame{"map_frame"};
   double maximum_x_distance_m{20.0};
   double maximum_y_distance_m{20.0};
   double minimum_z_offset_m{0.01};

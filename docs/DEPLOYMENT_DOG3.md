@@ -7,21 +7,21 @@
 目标目录固定为：
 
 ```text
-/userdata/5_egoplanner
+/userdata/6_egoplanner
 ```
 
 只同步源码、配置、测试、文档与许可证；不复制开发机的 `build/`、`install/`、`log/`、`.git/` 或 IDE 缓存。构建产物必须在 dog3 上原生生成，以匹配 aarch64 和机器狗自带 ROS 2 Humble。
 
 ## dog3 构建环境
 
-dog3 的 ROS 2 安装位于 `/app/opt/ros/humble`，构建工具和 Eigen 由 `/userdata/1_slam/.deps` 提供。不要只加载厂家 ROS 的 `setup.bash` 后直接编译；那会选中 Fast DDS，并在部分同款板端触发非标准 OpenSSL 路径问题。统一使用 SLAM 工作区提供的 dog3 环境脚本：
+dog3 的 ROS 2 安装位于 `/app/opt/ros/humble`，构建工具和 Eigen 由 `/userdata/2_slam/.deps` 提供。不要只加载厂家 ROS 的 `setup.bash` 后直接编译；那会选中 Fast DDS，并在部分同款板端触发非标准 OpenSSL 路径问题。统一使用 SLAM 工作区提供的 dog3 环境脚本：
 
 ```bash
-cd /userdata/5_egoplanner
+cd /userdata/6_egoplanner
 ./build_on_dog.sh
 ```
 
-该脚本会加载 `/userdata/1_slam/setup_dog3_env.sh`，使用 dog3 实际部署的
+该脚本会加载 `/userdata/2_slam/setup_dog3_env.sh`，使用 dog3 实际部署的
 `rmw_zenoh_cpp`、板端 colcon/Eigen 依赖，清理旧路径构建缓存并在当前目录原生编译。
 
 板端没有 lint 可执行程序，因此板端验收可设置 `DOG_EGO_PLANNER_ENABLE_LINT=OFF`；完整 lint 仍由开发机和 CI 执行。
@@ -62,7 +62,7 @@ namespace。测试期间：
 构建完成后可使用以下脚本启动规划节点，无需每次手动加载 ROS 和工作空间环境：
 
 ```bash
-cd /userdata/5_egoplanner
+cd /userdata/6_egoplanner
 ./1_start_planner.sh
 ```
 

@@ -23,7 +23,7 @@ from std_msgs.msg import Bool, Int32
 
 
 TEST_NAMESPACE = "planner_integration"
-PLANNING_FRAME = "local_map_lidar_init_xyz"
+PLANNING_FRAME = "map_frame"
 
 
 def generate_test_description():
@@ -35,6 +35,12 @@ def generate_test_description():
         parameters=[
             {
                 "planning_frame": PLANNING_FRAME,
+                "topics.odom":
+                    f"/{TEST_NAMESPACE}/relocalizing/map_frame/odometry",
+                "topics.global_path":
+                    f"/{TEST_NAMESPACE}/map_frame/global_path",
+                "topics.local_path":
+                    f"/{TEST_NAMESPACE}/map_frame/local_path",
                 "replan_freq": 20.0,
                 "goal_threshold": 0.2,
                 "local_path_max_m": 3.0,
@@ -85,10 +91,12 @@ class TestPlannerScenarios(unittest.TestCase):
 
         prefix = f"/{TEST_NAMESPACE}"
         cls.odom_publisher = cls.node.create_publisher(
-            Odometry, f"{prefix}/lidar_location_now", odometry_qos
+            Odometry,
+            f"{prefix}/relocalizing/map_frame/odometry",
+            odometry_qos,
         )
         cls.path_publisher = cls.node.create_publisher(
-            Path, f"{prefix}/pct_path_copy", transient_qos
+            Path, f"{prefix}/map_frame/global_path", transient_qos
         )
         cls.cloud_publisher = cls.node.create_publisher(
             PointCloud2, f"{prefix}/lidar_points_copy", sensor_qos
@@ -102,7 +110,7 @@ class TestPlannerScenarios(unittest.TestCase):
         cls.subscriptions = [
             cls.node.create_subscription(
                 Path,
-                f"{prefix}/dog_output_local_path_copy",
+                f"{prefix}/map_frame/local_path",
                 cls.local_paths.append,
                 transient_qos,
             ),

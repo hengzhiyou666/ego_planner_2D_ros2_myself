@@ -1,19 +1,19 @@
 /**:
   ros__parameters:
-    # ROS graph interface. Relative topic names remain identical in the root namespace
-    # and allow the node to be placed under a robot namespace.
-    topics.odom: "lidar_location_now"
-    topics.global_path: "pct_path_copy"
+    # ROS graph interface. Map-frame odometry and paths use explicit absolute topics;
+    # the remaining names are relative and can follow a robot namespace.
+    topics.odom: "/relocalizing/map_frame/odometry"
+    topics.global_path: "/map_frame/global_path"
     topics.point_cloud: "lidar_points_copy"
     topics.filtered_point_cloud: "lidar_points_filtered_copy"
     topics.unfinished_global_path: "dog_output_global_path_unfinished_copy"
-    topics.local_path: "dog_output_local_path_copy"
+    topics.local_path: "/map_frame/local_path"
     topics.occupancy_grid: "dog_2Dmap_occupancy_copy"
     topics.goal_reached_legacy: "if_reach_the_goal_copy"
     topics.goal_reached: "goal_reached_copy"
-    planning_frame: "local_map_lidar_init_xyz"
+    planning_frame: "map_frame"
 
-    # /lidar_location_now is published reliably by the self-SLAM localization bridge.
+    # The map-frame localization output is published reliably by 2_slam.
     odometry_use_best_effort_qos: false
     pct_path_match_nav2_qos: true
 

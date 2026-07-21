@@ -245,7 +245,7 @@ private:
     maximum_rebound_retries_ = declare_parameter<int>("max_rebound_retries", 3);
 
     planning_frame_ = declare_parameter<std::string>(
-      "planning_frame", "local_map_lidar_init_xyz");
+      "planning_frame", "map_frame");
     transform_timeout_ms_ = declare_parameter<int>("cloud_tf_timeout_ms", 100);
     transform_fallback_maximum_age_ms_ =
       declare_parameter<int>("cloud_tf_fallback_max_age_ms", 100);
@@ -326,9 +326,9 @@ private:
       declare_parameter<bool>("safety.require_fresh_obstacle_data", true);
 
     odometry_topic_ = declareCompatibleParameter<std::string>(
-      "topics.odom", "topic_odom", "lidar_location_now");
+      "topics.odom", "topic_odom", "/relocalizing/map_frame/odometry");
     global_path_topic_ = declareCompatibleParameter<std::string>(
-      "topics.global_path", "topic_pct_path", "pct_path_copy");
+      "topics.global_path", "topic_pct_path", "/map_frame/global_path");
     point_cloud_topic_ = declareCompatibleParameter<std::string>(
       "topics.point_cloud", "topic_lidar", "lidar_points_copy");
     filtered_cloud_topic_ =
@@ -338,7 +338,7 @@ private:
       "topics.unfinished_global_path", "dog_output_global_path_unfinished_copy");
     local_path_topic_ =
       declare_parameter<std::string>(
-      "topics.local_path", "dog_output_local_path_copy");
+      "topics.local_path", "/map_frame/local_path");
     occupancy_topic_ =
       declare_parameter<std::string>(
       "topics.occupancy_grid", "dog_2Dmap_occupancy_copy");
@@ -1537,7 +1537,7 @@ private:
   double maximum_jerk_{5.0};
   bool optimizer_logging_{false};
   int maximum_rebound_retries_{3};
-  std::string planning_frame_{"local_map_lidar_init_xyz"};
+  std::string planning_frame_{"map_frame"};
   int transform_timeout_ms_{100};
   int transform_fallback_maximum_age_ms_{100};
   bool allow_latest_transform_fallback_{true};
@@ -1570,12 +1570,12 @@ private:
   double maximum_cloud_odometry_skew_{0.1};
   double path_reuse_maximum_distance_{0.5};
   bool require_fresh_obstacle_data_{true};
-  std::string odometry_topic_{"lidar_location_now"};
-  std::string global_path_topic_{"pct_path_copy"};
+  std::string odometry_topic_{"/relocalizing/map_frame/odometry"};
+  std::string global_path_topic_{"/map_frame/global_path"};
   std::string point_cloud_topic_{"lidar_points_copy"};
   std::string filtered_cloud_topic_{"lidar_points_filtered_copy"};
   std::string unfinished_path_topic_{"dog_output_global_path_unfinished_copy"};
-  std::string local_path_topic_{"dog_output_local_path_copy"};
+  std::string local_path_topic_{"/map_frame/local_path"};
   std::string occupancy_topic_{"dog_2Dmap_occupancy_copy"};
   std::string legacy_goal_topic_{"if_reach_the_goal_copy"};
   std::string goal_topic_{"goal_reached_copy"};

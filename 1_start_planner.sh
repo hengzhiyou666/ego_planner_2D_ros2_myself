@@ -15,27 +15,9 @@ set -eo pipefail
 
 # 这个脚本现在就放在工程根目录，所以它所在的文件夹就是工程根目录。
 # 不管你从哪个目录运行脚本，都能正确找到工程。
-# 本地示例：/home/hzy/.../ego_planner_2D_ros2_myself
-# dog3 示例：/userdata/5_egoplanner
+# 本地示例：/home/hzy/.../6_egoplanner
+# dog3 示例：/userdata/6_egoplanner
 readonly REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-
-# 规划器从0号适配层读取自研定位话题，避免在多个工程中分别维护名称。
-if [[ -n "${TOPIC_FRAME_ADAPTER_DIR:-}" ]]; then
-  ADAPTER_DIR="$TOPIC_FRAME_ADAPTER_DIR"
-elif [[ -d /userdata/0_topic_name_frame_adapter ]]; then
-  ADAPTER_DIR=/userdata/0_topic_name_frame_adapter
-else
-  ADAPTER_DIR="$(cd "$REPO_ROOT/.." && pwd)/0_topic_name_frame_adapter"
-fi
-if [[ ! -x "$ADAPTER_DIR/adapter_profile.py" ]]; then
-  echo "错误：缺少0号适配配置：$ADAPTER_DIR/adapter_profile.py" >&2
-  exit 2
-fi
-if ! profile_exports="$(python3 "$ADAPTER_DIR/adapter_profile.py" shell)"; then
-  echo "错误：无法读取0号适配配置。" >&2
-  exit 2
-fi
-eval "$profile_exports"
 
 # 当用户输入 --help 时，这个函数负责显示帮助文字。
 usage() {
@@ -49,7 +31,7 @@ usage() {
   ./1_start_planner.sh launch_rviz:=true
   ./1_start_planner.sh use_sim_time:=true launch_rviz:=true
 
-脚本只启动 dog_ego_planner，不启动 dog_move_forward.py，也不发布 /vel_cmd。
+脚本只启动 dog_ego_planner，不启动独立的7号控制器，也不发布 /vel_cmd。
 EOF
 }
 
@@ -80,7 +62,7 @@ runtime_setup=""
 # 本地：/opt/ros/humble/setup.bash
 # 下面的循环会自动寻找，找到第一个存在的文件就停止寻找。
 for candidate in \
-  /userdata/1_slam/setup_dog3_env.sh \
+  /userdata/2_slam/setup_dog3_env.sh \
   /app/opt/ros/humble/setup.bash \
   /opt/ros/humble/setup.bash; do
   if [[ -f "${candidate}" ]]; then
@@ -120,7 +102,7 @@ if [[ "${check_only}" == true ]]; then
   echo "运行环境：${runtime_setup}"
   echo "工程目录：${REPO_ROOT}"
   echo "包安装目录：${package_prefix}"
-  echo "雷达地图当前位置：${ADAPTER_LOCATION_TOPIC}"
+  echo "定位里程计：/relocalizing/map_frame/odometry"
   echo "启动环境检查通过；没有启动节点。"
   exit 0
 fi
@@ -130,16 +112,7 @@ echo "启动 dog_ego_planner（包目录：${package_prefix}）"
 
 # "$@" 表示把用户输入的其他参数继续交给 ros2 launch。
 # 例如输入 launch_rviz:=true，就会继续传给 launch 文件。
+# launch默认直接订阅 /relocalizing/map_frame/odometry；如需覆盖，可传入
+# odometry_topic:=其他话题。
 # exec 表示让当前脚本进程直接变成规划器启动进程，按 Ctrl+C 时也更容易正常退出。
-launch_arguments=("$@")
-odometry_topic_overridden=false
-for argument in "${launch_arguments[@]}"; do
-  if [[ "$argument" == odometry_topic:=* ]]; then
-    odometry_topic_overridden=true
-    break
-  fi
-done
-if [[ "$odometry_topic_overridden" == false ]]; then
-  launch_arguments=("odometry_topic:=$ADAPTER_LOCATION_TOPIC" "${launch_arguments[@]}")
-fi
-exec ros2 launch dog_ego_planner dog_ego_planner.launch.py "${launch_arguments[@]}"
+exec ros2 launch dog_ego_planner dog_ego_planner.launch.py "$@"

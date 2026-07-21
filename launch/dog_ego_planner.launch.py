@@ -55,7 +55,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "odometry_topic",
-                default_value="lidar_location_now",
+                default_value="/relocalizing/map_frame/odometry",
                 description="Current LiDAR pose topic produced by self localization.",
             ),
             Node(

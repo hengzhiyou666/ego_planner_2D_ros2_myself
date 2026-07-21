@@ -8,6 +8,13 @@ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly PACKAGE_NAME="dog_ego_planner"
 
+# 这台PC的Snap版cmake需要创建systemd transient scope，在部分终端/沙箱中
+# 会因DBus拒绝而无法启动。优先使用系统原生cmake，保证本地构建稳定。
+if [[ "$(command -v cmake 2>/dev/null || true)" == "/snap/bin/cmake" ]] && \
+  [[ -x /usr/bin/cmake ]]; then
+  export PATH="/usr/bin:/bin:${PATH}"
+fi
+
 build_type="RelWithDebInfo"
 clean=false
 extra_colcon_args=()
